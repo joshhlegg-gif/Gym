@@ -3,12 +3,34 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "tsx --test tests/**/*.test.ts",
+    "dev": "next dev",
+    "build": "npm run db:migrate && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:migrate": "tsx lib/db/migrate.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.5",
+    "tailwindcss": "^4.3.3",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.116.0",
+    "drizzle-orm": "^0.45.2",
+    "next": "^16.3.5",
+    "postgres": "^3.4.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   }
 }
