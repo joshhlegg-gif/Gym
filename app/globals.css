@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 resolves utilities by stylesheet order, so a base class plus an
+ * override silently loses. Compose whole recipes; never layer one on another.
+ */
+
+@theme {
+  --color-ink: oklch(0.18 0.01 260);
+  --color-paper: oklch(0.99 0.002 260);
+  --color-muted: oklch(0.55 0.015 260);
+  --color-line: oklch(0.91 0.006 260);
+  --color-trend: oklch(0.52 0.16 255);
+  --color-reading: oklch(0.72 0.05 260);
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-ink: oklch(0.95 0.005 260);
+    --color-paper: oklch(0.17 0.012 260);
+    --color-muted: oklch(0.65 0.02 260);
+    --color-line: oklch(0.28 0.012 260);
+    --color-trend: oklch(0.74 0.14 255);
+    --color-reading: oklch(0.45 0.03 260);
+  }
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Numbers in tables and readouts should not jitter as digits change. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
