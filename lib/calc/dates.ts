@@ -71,10 +71,10 @@ export function weekdayOf(day: DayKey): Weekday {
 /**
  * The first day of the week `day` belongs to.
  *
- * `weekStartsOn` comes from the profile — Monday by default, but a phase that
- * always begins on a Sunday may want the weeks to line up with it.
+ * `weekStartsOn` comes from the profile. Sunday by default, which is how Josh
+ * thinks about a week and what his calendar already shows him.
  */
-export function weekStartOf(day: DayKey, weekStartsOn: Weekday = 1): DayKey {
+export function weekStartOf(day: DayKey, weekStartsOn: Weekday = 0): DayKey {
   const offset = (weekdayOf(day) - weekStartsOn + 7) % 7;
   return addDays(day, -offset);
 }

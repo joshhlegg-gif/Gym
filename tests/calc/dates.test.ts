@@ -66,23 +66,33 @@ describe('day arithmetic', () => {
 });
 
 describe('weekStartOf', () => {
-  test('defaults to Monday', () => {
+  test('defaults to Sunday', () => {
     assert.equal(weekdayOf('2026-09-19'), 6); // Saturday
-    assert.equal(weekStartOf('2026-09-19'), '2026-09-14');
+    assert.equal(weekStartOf('2026-09-19'), '2026-09-13');
   });
 
-  test('Monday is its own week start', () => {
-    assert.equal(weekStartOf('2026-09-14'), '2026-09-14');
+  test('Sunday is its own week start', () => {
+    assert.equal(weekStartOf('2026-09-13'), '2026-09-13');
   });
 
-  test('honours a configured Sunday start', () => {
-    assert.equal(weekStartOf('2026-09-19', 0), '2026-09-13');
-    assert.equal(weekStartOf('2026-09-13', 0), '2026-09-13');
+  test('Saturday is the last day, not the first', () => {
+    // The boundary that matters: Saturday and the Sunday after it belong to
+    // different weeks, so a Saturday weigh-in closes a week rather than
+    // opening one.
+    assert.equal(weekStartOf('2026-09-19'), '2026-09-13');
+    assert.equal(weekStartOf('2026-09-20'), '2026-09-20');
+  });
+
+  test('honours a configured Monday start', () => {
+    assert.equal(weekStartOf('2026-09-19', 1), '2026-09-14');
+    assert.equal(weekStartOf('2026-09-14', 1), '2026-09-14');
   });
 
   test('is stable across a DST boundary', () => {
-    assert.equal(weekStartOf('2026-10-04'), '2026-09-28');
-    assert.equal(weekStartOf('2026-10-05'), '2026-10-05');
+    // 4 October 2026 is both a Sunday and the day the clocks go forward.
+    assert.equal(weekStartOf('2026-10-04'), '2026-10-04');
+    assert.equal(weekStartOf('2026-10-03'), '2026-09-27');
+    assert.equal(weekStartOf('2026-10-10'), '2026-10-04');
   });
 });
 

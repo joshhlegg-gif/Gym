@@ -113,7 +113,7 @@ function mean(values: number[]): number | undefined {
  * Weeks with no logs at all are still emitted, so a gap in the table reads as a
  * gap rather than as two adjacent weeks that were never adjacent.
  */
-export function weeklyAverages(logs: DailyLog[], weekStartsOn: Weekday = 1): WeeklyAverage[] {
+export function weeklyAverages(logs: DailyLog[], weekStartsOn: Weekday = 0): WeeklyAverage[] {
   if (logs.length === 0) return [];
 
   const sorted = [...logs].sort((a, b) => compareDays(a.date, b.date));

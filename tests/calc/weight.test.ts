@@ -154,9 +154,21 @@ describe('weeklyAverages', () => {
     assert.ok(Math.abs(weeks[2]!.changeG! - 500) < 1e-6);
   });
 
-  test('respects a configured week start', () => {
-    const sundayWeeks = weeklyAverages([log('2026-09-19', 70)], 0);
-    assert.equal(sundayWeeks[0]!.weekStart, '2026-09-13');
+  test('buckets to Sunday by default', () => {
+    assert.equal(weeklyAverages([log('2026-09-19', 70)])[0]!.weekStart, '2026-09-13');
+  });
+
+  test('respects a configured Monday start', () => {
+    const mondayWeeks = weeklyAverages([log('2026-09-19', 70)], 1);
+    assert.equal(mondayWeeks[0]!.weekStart, '2026-09-14');
+  });
+
+  test('a Saturday and the Sunday after it are different weeks', () => {
+    // Under a Monday start these two would average together and the change
+    // would read as zero. Under Sunday they are a week apart.
+    const weeks = weeklyAverages([log('2026-09-19', 70), log('2026-09-20', 70.4)]);
+    assert.equal(weeks.length, 2);
+    assert.ok(Math.abs(weeks[1]!.changeG! - 400) < 1e-6);
   });
 
   test('no logs, no weeks', () => {

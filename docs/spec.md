@@ -204,7 +204,9 @@ snapshot.
 `isWarmup`, `notes?`.
 
 ### UserProfile
-`heightCm` (175) · sex · birth year · units · week start day (default Monday) ·
+`heightCm` (175) · sex · birth year · units · week start day (**Sunday** —
+settled 19 Sep 2026; configurable, and every weekly calculation takes it as a
+parameter rather than assuming it) ·
 preferred weigh-in time · measurement reminder interval.
 
 Personal defaults live in seed data and settings. Never hard-coded.
@@ -340,12 +342,11 @@ private API — ever.
 
 ## 11. Open questions
 
-1. Week start day: Monday (default), or the day phases usually begin?
-2. RIR per set: log it, or keep it optional and hidden?
-3. Progress photos in v1, or defer to M6?
-4. Smart scale writing to Apple Health, or always manual weigh-ins?
-5. Arm and thigh: one side or both?
-6. Subjective tracking — mind-muscle connection, mental state, cravings — was
+1. RIR per set: log it, or keep it optional and hidden?
+2. Progress photos in v1, or defer to M6?
+3. Smart scale writing to Apple Health, or always manual weigh-ins?
+4. Arm and thigh: one side or both?
+5. Subjective tracking — mind-muscle connection, mental state, cravings — was
    raised as a later addition. Design one annotation mechanism rather than four
    bespoke fields, and build it no earlier than M5. Note that RPE and RIR are
    the same measurement (RPE 8 ≡ 2 RIR); log one.
