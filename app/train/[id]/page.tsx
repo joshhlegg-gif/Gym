@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { addSet, completeWorkout, deleteSet, duplicateSet } from "../actions";
+import { addSessionExercise, addSet, completeWorkout, deleteSet, duplicateSet, removeSessionExercise } from "../actions";
 import { RestTimer } from "./rest-timer";
 
 type WorkoutSet = {
@@ -39,9 +39,9 @@ function previousMatch(currentSet: WorkoutSet, currentSets: WorkoutSet[], previo
   return previousSets.filter((set) => set.set_type === currentSet.set_type)[ordinal - 1];
 }
 
-export default async function WorkoutPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ rest?: string }> }) {
+export default async function WorkoutPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ rest?: string; error?: string }> }) {
   const { id } = await params;
-  const { rest } = await searchParams;
+  const { rest, error } = await searchParams;
   const restSeconds = Number(rest);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getClaims();
@@ -58,7 +58,7 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
   if (!workout) notFound();
 
   const exerciseIds = (workout.session_exercises ?? []).map((exercise) => exercise.exercise_id);
-  const [{ data: plans }, { data: completedSessions }] = await Promise.all([
+  const [{ data: plans }, { data: completedSessions }, { data: availableExercises }] = await Promise.all([
     workout.template_id
       ? supabase
           .from("template_exercises")
@@ -74,6 +74,12 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
           .lt("started_at", workout.started_at)
           .order("started_at", { ascending: false })
       : Promise.resolve({ data: [] }),
+    supabase
+      .from("exercises")
+      .select("id,name")
+      .eq("owner_id", ownerId)
+      .eq("archived", false)
+      .order("name"),
   ]);
 
   const previousSessionIds = completedSessions?.map((session) => session.id) ?? [];
@@ -114,6 +120,20 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
         <Link href="/train">Exit</Link>
       </header>
       <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
+      {error && <p className="error">{error}</p>}
+
+      <section className="section">
+        <form action={addSessionExercise} className="measurement-grid">
+          <label>Add an exercise
+            <select name="exercise_id" required defaultValue="">
+              <option value="" disabled>Select exercise</option>
+              {(availableExercises ?? []).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+            </select>
+          </label>
+          <input type="hidden" name="workout_id" value={id} />
+          <button type="submit">Add exercise</button>
+        </form>
+      </section>
 
       <section className="section">
         {workout.session_exercises?.sort((a, b) => a.position - b.position).map((exercise) => {
@@ -178,6 +198,11 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
                 <label>RIR<input name="rir" type="number" step="0.5" /></label>
                 <button className="primary">Add set</button>
               </form>
+              {currentSets.length === 0 && <form action={removeSessionExercise}>
+                <input type="hidden" name="workout_id" value={id} />
+                <input type="hidden" name="session_exercise_id" value={exercise.id} />
+                <button type="submit">Skip exercise</button>
+              </form>}
             </article>
           );
         })}

@@ -102,6 +102,85 @@ export async function addSet(formData: FormData) {
   redirect(workoutUrl(workoutId, formData));
 }
 
+export async function addSessionExercise(formData: FormData) {
+  const { supabase, ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+
+  const workoutId = String(formData.get("workout_id"));
+  const exerciseId = String(formData.get("exercise_id"));
+  const [{ data: workout }, { data: exercise }, { data: existing }, { data: lastExercise }] = await Promise.all([
+    supabase
+      .from("workout_sessions")
+      .select("id")
+      .eq("id", workoutId)
+      .eq("owner_id", ownerId)
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("exercises")
+      .select("id")
+      .eq("id", exerciseId)
+      .eq("owner_id", ownerId)
+      .eq("archived", false)
+      .maybeSingle(),
+    supabase
+      .from("session_exercises")
+      .select("id")
+      .eq("session_id", workoutId)
+      .eq("exercise_id", exerciseId)
+      .eq("owner_id", ownerId)
+      .maybeSingle(),
+    supabase
+      .from("session_exercises")
+      .select("position")
+      .eq("session_id", workoutId)
+      .eq("owner_id", ownerId)
+      .order("position", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (!workout || !exercise) redirect(`/train/${workoutId}?error=Could%20not%20add%20exercise`);
+  if (existing) redirect(`/train/${workoutId}?error=Exercise%20is%20already%20in%20this%20workout`);
+
+  const { error } = await supabase.from("session_exercises").insert({
+    owner_id: ownerId,
+    session_id: workoutId,
+    exercise_id: exerciseId,
+    position: (lastExercise?.position ?? 0) + 1,
+  });
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20add%20exercise`);
+
+  redirect(`/train/${workoutId}`);
+}
+
+export async function removeSessionExercise(formData: FormData) {
+  const { ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+
+  const workoutId = String(formData.get("workout_id"));
+  const sessionExerciseId = String(formData.get("session_exercise_id"));
+  const { supabase, sessionExercise } = await getActiveSessionExercise(workoutId, sessionExerciseId, ownerId);
+  if (!sessionExercise) redirect(`/train/${workoutId}?error=Could%20not%20skip%20exercise`);
+
+  const { count } = await supabase
+    .from("workout_sets")
+    .select("id", { count: "exact", head: true })
+    .eq("session_exercise_id", sessionExerciseId)
+    .eq("owner_id", ownerId);
+  if (count) redirect(`/train/${workoutId}?error=Exercises%20with%20logged%20sets%20cannot%20be%20skipped`);
+
+  const { error } = await supabase
+    .from("session_exercises")
+    .delete()
+    .eq("id", sessionExerciseId)
+    .eq("session_id", workoutId)
+    .eq("owner_id", ownerId);
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20skip%20exercise`);
+
+  redirect(`/train/${workoutId}`);
+}
+
 export async function deleteSet(formData: FormData) {
   const { ownerId } = await getOwnerId();
   if (!ownerId) redirect("/login");

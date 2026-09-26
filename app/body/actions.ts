@@ -16,7 +16,8 @@ export async function saveMeasurements(formData: FormData) {
   const arm = number(formData.get("arm_cm"));
   const thigh = number(formData.get("thigh_cm"));
   const calf = number(formData.get("calf_cm"));
-  const { error } = await supabase.from("body_measurements").upsert({
+  const measurementId = String(formData.get("measurement_id") ?? "");
+  const measurement = {
     owner_id: ownerId,
     date: String(formData.get("date")),
     chest_cm: number(formData.get("chest_cm")),
@@ -28,9 +29,31 @@ export async function saveMeasurements(formData: FormData) {
     left_calf_cm: number(formData.get("left_calf_cm")) ?? calf,
     right_calf_cm: number(formData.get("right_calf_cm")) ?? calf,
     notes: String(formData.get("notes") ?? "").trim() || null,
-  }, { onConflict: "owner_id,date" });
-  if (error) redirect(`/body?error=${encodeURIComponent("Could not save measurements.")}`);
+  };
+  const { error } = measurementId
+    ? await supabase.from("body_measurements").update(measurement).eq("id", measurementId).eq("owner_id", ownerId)
+    : await supabase.from("body_measurements").upsert(measurement, { onConflict: "owner_id,date" });
+  if (error) {
+    const url = measurementId ? `/body?edit=${measurementId}&error=` : "/body?error=";
+    redirect(`${url}${encodeURIComponent("Could not save measurements.")}`);
+  }
   redirect("/body?saved=1");
+}
+
+export async function deleteMeasurement(formData: FormData) {
+  const supabase = await createClient();
+  const { data: identity } = await supabase.auth.getClaims();
+  const ownerId = identity?.claims.sub;
+  if (!ownerId) redirect("/login");
+
+  const measurementId = String(formData.get("measurement_id") ?? "");
+  const { error } = await supabase
+    .from("body_measurements")
+    .delete()
+    .eq("id", measurementId)
+    .eq("owner_id", ownerId);
+  if (error) redirect(`/body?edit=${measurementId}&error=${encodeURIComponent("Could not delete measurement.")}`);
+  redirect("/body");
 }
 
 export async function saveBodyweight(formData: FormData) {
