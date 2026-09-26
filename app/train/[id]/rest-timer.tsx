@@ -18,6 +18,7 @@ export function RestTimer({ workoutId, startSeconds }: { workoutId: string; star
   const storageKey = `gym-rest-timer:${workoutId}`;
   const [timer, setTimer] = useState<TimerState | null>(null);
   const [remaining, setRemaining] = useState(0);
+  const [editedSeconds, setEditedSeconds] = useState("");
   const hasStartedFromQuery = useRef(false);
 
   function save(next: TimerState | null) {
@@ -75,10 +76,20 @@ export function RestTimer({ workoutId, startSeconds }: { workoutId: string; star
   const isPaused = timer.endAt == null;
   const isExpired = !isPaused && remaining === 0;
   const label = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")}`;
+  const applyEditedSeconds = () => {
+    const seconds = Number(editedSeconds);
+    if (!Number.isFinite(seconds) || seconds < 0) return;
+    save({ endAt: isPaused ? null : Date.now() + seconds * 1000, pausedSeconds: isPaused ? seconds : null, durationSeconds: seconds, alerted: false });
+    setEditedSeconds("");
+  };
 
   return (
     <aside className="rest-timer" aria-live="polite">
       <strong>{isExpired ? "Rest complete" : `Rest ${label}`}</strong>
+      <div className="rest-timer-edit">
+        <label>Set rest seconds<input type="number" min="0" inputMode="numeric" value={editedSeconds} onChange={(event) => setEditedSeconds(event.target.value)} placeholder={String(remaining)} /></label>
+        <button type="button" onClick={applyEditedSeconds}>Apply</button>
+      </div>
       <div className="rest-timer-controls">
         {!isExpired && (isPaused ? (
           <button type="button" onClick={() => save({ ...timer, endAt: Date.now() + remaining * 1000, pausedSeconds: null })}>Resume</button>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rollingSevenDayAverage } from "@/lib/bodyweight";
 
 const APP_TIME_ZONE = "Australia/Melbourne";
 const measurementFields = ["chest_cm", "waist_cm", "left_arm_cm", "right_arm_cm", "left_thigh_cm", "right_thigh_cm", "left_calf_cm", "right_calf_cm"] as const;
@@ -37,14 +38,14 @@ export default async function TimelineDayPage({ params }: { params: Promise<{ da
   const [{ data: log }, { data: measurement }, { data: weights }, { data: phase }, { data: events }, { data: possibleSessions }] = await Promise.all([
     supabase.from("daily_logs").select("date,weight_kg,calories_kcal,protein_g,carbs_g,fat_g,sodium_mg,steps,tracking_status,notes,tags").eq("owner_id", ownerId).eq("date", date).maybeSingle(),
     supabase.from("body_measurements").select("date,chest_cm,waist_cm,left_arm_cm,right_arm_cm,left_thigh_cm,right_thigh_cm,left_calf_cm,right_calf_cm,notes").eq("owner_id", ownerId).eq("date", date).maybeSingle(),
-    supabase.from("daily_logs").select("weight_kg").eq("owner_id", ownerId).gte("date", shiftDate(date, -6)).lte("date", date).not("weight_kg", "is", null),
+    supabase.from("daily_logs").select("date,weight_kg").eq("owner_id", ownerId).gte("date", shiftDate(date, -6)).lte("date", date).not("weight_kg", "is", null),
     supabase.from("phases").select("name,nutrition_goal,training_goal,target_calories_kcal,estimated_maintenance_kcal").eq("owner_id", ownerId).lte("start_date", date).or(`end_date.is.null,end_date.gte.${date}`).order("start_date", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("life_events").select("id,title,type,start_date,end_date,notes").eq("owner_id", ownerId).lte("start_date", date).or(`end_date.is.null,end_date.gte.${date}`).order("start_date", { ascending: false }),
     supabase.from("workout_sessions").select("id,started_at,notes,workout_templates(name),session_exercises(id,position,exercises(name),workout_sets(id,set_number,set_type,weight_kg,reps,rir))").eq("owner_id", ownerId).eq("status", "completed").gte("started_at", workoutStart).lt("started_at", workoutEnd),
   ]);
 
   const sessions = (possibleSessions ?? []).filter((session) => localDate(session.started_at) === date);
-  const average = weights?.length ? weights.reduce((sum, item) => sum + Number(item.weight_kg), 0) / weights.length : null;
+  const average = rollingSevenDayAverage((weights ?? []).map((item) => ({ date: item.date, weight: Number(item.weight_kg) })).filter((item) => Number.isFinite(item.weight))).find((item) => item.date === date)?.weight ?? null;
   const title = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: APP_TIME_ZONE }).format(new Date(`${date}T12:00:00.000Z`));
   const macros = [log?.calories_kcal != null ? `${log.calories_kcal} kcal` : null, log?.protein_g != null ? `${log.protein_g}g protein` : null, log?.carbs_g != null ? `${log.carbs_g}g carbs` : null, log?.fat_g != null ? `${log.fat_g}g fat` : null, log?.sodium_mg != null ? `${log.sodium_mg}mg sodium` : null, log?.steps != null ? `${log.steps} steps` : null].filter(Boolean);
   const tags = Array.isArray(log?.tags) ? log.tags.join(", ") : log?.tags;

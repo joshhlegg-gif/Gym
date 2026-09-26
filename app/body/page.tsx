@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { rollingSevenDayAverage } from "@/lib/bodyweight";
 import { deleteMeasurement, saveBodyweight, saveMeasurements } from "./actions";
+import { BodyHistoryCharts } from "./body-history-charts";
 
 const fields = [
   "chest_cm",
@@ -41,22 +43,6 @@ function daysAgo(days: number) {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-function WeightTrend({ entries }: { entries: WeightEntry[] }) {
-  if (entries.length < 2) return <p className="muted">Add another weigh-in to see a trend.</p>;
-
-  const ordered = [...entries].reverse();
-  const values = ordered.map((entry) => entry.weight);
-  const minimum = Math.min(...values);
-  const range = Math.max(...values) - minimum || 1;
-  const points = ordered.map((entry, index) => ({
-    date: entry.date,
-    x: 8 + (index * 184) / (ordered.length - 1),
-    y: 52 - ((entry.weight - minimum) / range) * 44,
-  }));
-
-  return <svg className="weight-trend" viewBox="0 0 200 60" role="img" aria-label="Recent bodyweight trend"><polyline points={points.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="2" />{points.map((point) => <circle key={point.date} cx={point.x} cy={point.y} r="2.5" />)}</svg>;
-}
-
 export default async function BodyPage({ searchParams }: { searchParams: Promise<{ saved?: string; weightSaved?: string; error?: string; edit?: string }> }) {
   const supabase = await createClient();
   const { data: identity } = await supabase.auth.getClaims();
@@ -64,10 +50,10 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
   if (!ownerId) redirect("/login");
 
   const { saved, weightSaved, error, edit } = await searchParams;
-  const [{ data: measurements }, { data: logs }, { data: phase }, { data: editing }] = await Promise.all([
-    supabase.from("body_measurements").select("*").order("date", { ascending: false }).limit(20),
-    supabase.from("daily_logs").select("date,weight_kg").not("weight_kg", "is", null).order("date", { ascending: false }).limit(60),
-    supabase.from("phases").select("name").is("end_date", null).order("start_date", { ascending: false }).limit(1).maybeSingle(),
+  const [{ data: measurements }, { data: logs }, { data: phases }, { data: editing }] = await Promise.all([
+    supabase.from("body_measurements").select("*").order("date", { ascending: false }),
+    supabase.from("daily_logs").select("date,weight_kg").not("weight_kg", "is", null).order("date", { ascending: false }),
+    supabase.from("phases").select("id,name,start_date,end_date,nutrition_goal,target_rate_kg_per_week").eq("owner_id", ownerId).order("start_date", { ascending: false }),
     edit
       ? supabase.from("body_measurements").select("*").eq("id", edit).eq("owner_id", ownerId).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -79,9 +65,19 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
   const currentAverage = average(weights.filter((entry) => entry.date >= daysAgo(6) && entry.date <= daysAgo(0)));
   const previousAverage = average(weights.filter((entry) => entry.date >= daysAgo(13) && entry.date < daysAgo(6)));
   const averageChange = currentAverage != null && previousAverage != null ? currentAverage - previousAverage : null;
+  const rolling = rollingSevenDayAverage(weights);
   const latest = measurements?.[0];
   const previous = measurements?.[1];
   const today = daysAgo(0);
+  const activePhase = (phases ?? []).find((phase) => phase.start_date <= today && (!phase.end_date || phase.end_date >= today));
+  const phaseRates = (phases ?? []).filter((phase) => phase.target_rate_kg_per_week != null).map((phase) => {
+    const end = phase.end_date && phase.end_date < today ? phase.end_date : today;
+    const averages = rolling.filter((entry) => entry.date >= phase.start_date && entry.date <= end);
+    const first = averages[0];
+    const last = averages.at(-1);
+    const elapsedWeeks = first && last ? (new Date(`${last.date}T00:00:00.000Z`).getTime() - new Date(`${first.date}T00:00:00.000Z`).getTime()) / 604_800_000 : 0;
+    return { phase, actual: first && last && elapsedWeeks >= 1 ? (last.weight - first.weight) / elapsedWeeks : null };
+  });
 
   return <main className="app-shell">
     <header className="topbar">
@@ -104,10 +100,12 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
     <section className="grid">
       <article className="card"><p className="eyebrow">Latest bodyweight</p><h2>{kilograms(weights[0]?.weight ?? null)}</h2><p>Latest date {weights[0]?.date ?? "—"}</p></article>
       <article className="card"><p className="eyebrow">7-day average</p><h2>{kilograms(currentAverage)}</h2><p>Previous {kilograms(previousAverage)}</p><p className="muted">{averageChange == null ? "No prior comparison" : `${averageChange >= 0 ? "+" : ""}${averageChange.toFixed(1)} kg`}</p></article>
-      <article className="card"><p className="eyebrow">Current phase</p><h2>{phase?.name ?? "No active phase"}</h2><Link href="/setup/phases">Manage phases</Link></article>
+      <article className="card"><p className="eyebrow">Current phase</p><h2>{activePhase?.name ?? "No active phase"}</h2><Link href="/setup/phases">Manage phases</Link></article>
     </section>
 
-    <section className="section"><p className="eyebrow">Bodyweight trend</p><WeightTrend entries={weights.slice(0, 30)} /></section>
+    <BodyHistoryCharts weights={weights} rolling={rolling} measurements={measurements ?? []} phases={phases ?? []} />
+
+    {phaseRates.length > 0 && <section className="section"><p className="eyebrow">Phase bodyweight rate</p><div className="history-list">{phaseRates.map(({ phase, actual }) => { const target = Number(phase.target_rate_kg_per_week); return <article className="history-row" key={phase.id}><strong>{phase.name}</strong><span>Target {target >= 0 ? "+" : ""}{target.toFixed(2)} kg/week</span><span className="muted">{actual == null ? "Actual rate not yet available" : `Actual ${actual >= 0 ? "+" : ""}${actual.toFixed(2)} kg/week`}</span></article>; })}</div></section>}
 
     <section className="section">
       <p className="eyebrow">Recent bodyweight</p>

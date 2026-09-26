@@ -122,7 +122,7 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
       {error && <p className="error">{error}</p>}
 
-      <section className="section">
+      <section className="section logger-add-exercise">
         <form action={addSessionExercise} className="measurement-grid">
           <label>Add an exercise
             <select name="exercise_id" required defaultValue="">
@@ -135,73 +135,72 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
         </form>
       </section>
 
-      <section className="section">
+      <section className="logger-exercises">
         {workout.session_exercises?.sort((a, b) => a.position - b.position).map((exercise) => {
           const plan = planByExercise.get(exercise.exercise_id);
           const previous = previousByExercise.get(exercise.id);
           const currentSets = [...(exercise.workout_sets ?? [])].sort((a, b) => a.set_number - b.set_number);
 
           return (
-            <article className="card" key={exercise.id}>
-              <h2>{exercise.exercises?.[0]?.name}</h2>
-              <p className="muted">
+            <article className="card logger-exercise" key={exercise.id}>
+              <header className="logger-exercise-heading"><h2>{exercise.exercises?.[0]?.name}</h2><p className="muted">
                 {formatRepRange(plan?.rep_min ?? null, plan?.rep_max ?? null)} · {formatRest(plan?.default_rest_seconds ?? null)}
-              </p>
+              </p></header>
 
               {previous && (
-                <div className="muted">
-                  <p>Last time — {new Date(previous.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</p>
-                  {previous.sets.map((set) => <p key={set.id}>#{set.set_number} · {set.set_type} · {formatSet(set)}</p>)}
+                <div className="logger-previous muted">
+                  <p className="eyebrow">Last time · {new Date(previous.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</p>
+                  <p>{previous.sets.map((set) => `#${set.set_number} ${formatSet(set)}`).join(" · ")}</p>
                 </div>
               )}
 
-              {currentSets.map((set) => {
+              <div className="logger-current-sets">{currentSets.map((set) => {
                 const matchingPreviousSet = previous ? previousMatch(set, currentSets, previous.sets) : undefined;
                 return (
-                  <div key={set.id}>
-                    <p>#{set.set_number} · {set.set_type} · {formatSet(set)}</p>
-                    {matchingPreviousSet && <p className="muted">Previous: {formatSet(matchingPreviousSet)}</p>}
-                    <form action={duplicateSet}>
+                  <div className="logger-set-row" key={set.id}>
+                    <div className="logger-set-values"><strong>Set {set.set_number}</strong><span><small>Type</small>{set.set_type}</span><span><small>Weight</small>{set.weight_kg ?? "—"} kg</span><span><small>Reps</small>{set.reps ?? "—"}</span><span><small>RIR</small>{set.rir ?? "—"}</span></div>
+                    {matchingPreviousSet && <p className="logger-match">Previous match: {formatSet(matchingPreviousSet)}</p>}
+                    <div className="logger-set-actions"><form action={duplicateSet}>
                       <input type="hidden" name="workout_id" value={id} />
                       <input type="hidden" name="session_exercise_id" value={exercise.id} />
                       <input type="hidden" name="source_set_id" value={set.id} />
                       <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
-                      <button type="submit">Duplicate set</button>
+                      <button className="secondary-button" type="submit">Duplicate</button>
                     </form>
                     <form action={deleteSet}>
                       <input type="hidden" name="workout_id" value={id} />
                       <input type="hidden" name="session_exercise_id" value={exercise.id} />
                       <input type="hidden" name="set_id" value={set.id} />
-                      <button type="submit">Delete set</button>
-                    </form>
+                      <button className="secondary-button" type="submit">Delete</button>
+                    </form></div>
                   </div>
                 );
-              })}
+              })}</div>
 
-              {previous && previous.sets.map((set) => (
+              {previous && <div className="logger-previous-copies">{previous.sets.map((set) => (
                 <form action={duplicateSet} key={set.id}>
                   <input type="hidden" name="workout_id" value={id} />
                   <input type="hidden" name="session_exercise_id" value={exercise.id} />
                   <input type="hidden" name="source_set_id" value={set.id} />
                   <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
-                  <button type="submit">Duplicate previous #{set.set_number}</button>
+                  <button className="secondary-button" type="submit">Copy previous #{set.set_number}</button>
                 </form>
-              ))}
+              ))}</div>}
 
-              <form action={addSet} className="measurement-grid">
+              <form action={addSet} className="logger-entry-row">
                 <input type="hidden" name="workout_id" value={id} />
                 <input type="hidden" name="session_exercise_id" value={exercise.id} />
                 <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
                 <label>Type<select name="set_type"><option>working</option><option>warmup</option><option>backoff</option><option>drop</option><option>rest_pause</option></select></label>
-                <label>kg<input name="weight_kg" type="number" step="0.5" /></label>
-                <label>Reps<input name="reps" type="number" /></label>
-                <label>RIR<input name="rir" type="number" step="0.5" /></label>
-                <button className="primary">Add set</button>
+                <label>Weight (kg)<input name="weight_kg" type="number" step="0.5" inputMode="decimal" /></label>
+                <label>Reps<input name="reps" type="number" inputMode="numeric" /></label>
+                <label>RIR<input name="rir" type="number" step="0.5" inputMode="decimal" /></label>
+                <button className="primary logger-log-button">Log set</button>
               </form>
               {currentSets.length === 0 && <form action={removeSessionExercise}>
                 <input type="hidden" name="workout_id" value={id} />
                 <input type="hidden" name="session_exercise_id" value={exercise.id} />
-                <button type="submit">Skip exercise</button>
+                <button className="secondary-button" type="submit">Skip exercise</button>
               </form>}
             </article>
           );
