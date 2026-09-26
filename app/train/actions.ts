@@ -20,3 +20,22 @@ export async function addSet(formData: FormData) {
   await supabase.from("workout_sets").insert({ owner_id, session_exercise_id: sessionExerciseId, set_number: (previous?.set_number ?? 0) + 1, set_type: String(formData.get("set_type") || "working"), weight_kg: Number(formData.get("weight_kg")) || null, reps: Number(formData.get("reps")) || null, rir: Number(formData.get("rir")) || null, completed_at: new Date().toISOString() });
   redirect(`/train/${workoutId}`);
 }
+
+
+export async function completeWorkout(formData: FormData) {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getClaims();
+  const owner_id = auth?.claims.sub;
+  if (!owner_id) redirect("/login");
+
+  const workoutId = String(formData.get("workout_id"));
+  const { error } = await supabase
+    .from("workout_sessions")
+    .update({ status: "completed", ended_at: new Date().toISOString() })
+    .eq("id", workoutId)
+    .eq("owner_id", owner_id)
+    .eq("status", "active");
+
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20complete%20workout`);
+  redirect("/history");
+}
