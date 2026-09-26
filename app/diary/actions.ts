@@ -31,6 +31,8 @@ export async function saveLifeEvent(formData: FormData) {
     start_date: startDate,
     end_date: endDate,
     notes: String(formData.get("notes") ?? "").trim() || null,
+    affects_training: formData.get("affects_training") === "true",
+    excuses_nutrition_logging: formData.get("excuses_nutrition_logging") === "true",
   };
   const { error } = id
     ? await supabase.from("life_events").update(values).eq("id", id).eq("owner_id", ownerId)
