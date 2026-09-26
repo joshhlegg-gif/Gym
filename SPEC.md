@@ -404,7 +404,7 @@ Suggested bottom/mobile navigation:
 
 - **Today**
 - **Train**
-- **History**
+- **Timeline**
 - **Body**
 - **Setup**
 
@@ -759,6 +759,140 @@ No advanced analytics required initially.
 
 ---
 
+# 17A. Unified fitness timeline
+
+The app should provide one chronological view that reconstructs Josh's fitness context at a point in time without requiring navigation across separate feature pages.
+
+This is a **read-oriented projection over the existing structured source-of-truth tables**, not a new persistence model.
+
+Do not create a `timeline_entries` table and do not duplicate workouts, bodyweight, nutrition, phases, measurements, or life events into another store.
+
+## Purpose
+
+The timeline should answer questions such as:
+
+> What was going on with my training and body composition in May 2026?
+
+and, for a specific date:
+
+> What did I weigh, what phase was I in, what was affecting me, what training did I do, what nutrition did I record, and what were my latest measurements?
+
+The goal is temporal context, not analytics.
+
+## Timeline sources
+
+Compose the timeline from the existing tables:
+
+- `daily_logs` — bodyweight, calories, macros, tracking status, notes/tags where available;
+- `workout_sessions` + session exercises + sets — training performed;
+- `phases` — the phase active on that date and its targets/goals;
+- `life_events` — events active on or beginning/ending around that date;
+- `body_measurements` — measurement sessions.
+
+Keep these tables independent. The timeline only joins/presents them.
+
+## Main History / Timeline screen
+
+The existing **History** destination should become the main unified **Timeline** view.
+
+For alpha:
+
+- default to a recent chronological feed;
+- allow choosing/navigating to a month;
+- group information by calendar date;
+- newest-first is acceptable;
+- show only dates that contain a recorded event/data point, rather than generating hundreds of empty days;
+- clearly show ongoing phase/life-event context on relevant dated entries where practical.
+
+Each dated entry should compactly show available information such as:
+
+- bodyweight;
+- calorie/macro/tracking-status data;
+- workout name and exercise summary;
+- body measurements;
+- phase name, nutrition goal and calorie target;
+- active/relevant life events.
+
+Do not show empty categories merely to fill space.
+
+## Day detail
+
+A dated timeline entry should link to a simple day-detail view.
+
+The day detail should assemble all available context for that date:
+
+1. **Phase**
+   - active phase;
+   - nutrition goal;
+   - training goal;
+   - target calories;
+   - estimated maintenance where available.
+
+2. **Body**
+   - bodyweight recorded that day;
+   - body measurements recorded that day;
+   - 7-day bodyweight average if simple to derive using existing logic.
+
+3. **Nutrition / daily log**
+   - calories and existing macro fields when present;
+   - tracking status;
+   - daily notes/tags where present.
+   - If tracking status explicitly indicates food was not tracked, show that rather than treating missing calories as zero.
+
+4. **Training**
+   - workout session(s) on that date;
+   - exercises and sets;
+   - links to existing historical workout correction screens where useful.
+
+5. **Context**
+   - life events whose date range includes that date;
+   - events beginning or ending that date should naturally appear.
+
+## Temporal semantics
+
+- A phase is active on a date when `start_date <= date` and `end_date` is null or `end_date >= date`.
+- A life event is active using the same inclusive date-range rule.
+- Bodyweight/nutrition/daily logs belong to their explicit `date`.
+- Body measurements belong to their explicit `date`.
+- Workout sessions belong to the local calendar date represented by `started_at`; use the app/user timezone rather than accidentally shifting late-night workouts across dates.
+- Do not interpolate missing measurements, weights, nutrition, or workouts.
+- Do not infer that missing nutrition means zero intake.
+- Do not fabricate state for dates without data.
+
+## Navigation and existing pages
+
+Keep specialized pages because they remain useful for entry and management:
+
+- **Train** for live workout logging;
+- **Body** for bodyweight and measurement entry/trends;
+- **Setup** for phases/programs/templates/exercises;
+- **Diary** for creating/editing life events.
+
+However, **Timeline** should be the primary place for reviewing longitudinal history.
+
+The existing workout-history filtering/editing functionality may remain available as a focused subview or be linked from Timeline. Do not remove working historical-correction functionality merely to consolidate the UI.
+
+## Scope limits
+
+For alpha, do NOT add:
+
+- a new timeline database table;
+- denormalized timeline records;
+- full-text search infrastructure;
+- analytics dashboards;
+- correlations or causal claims;
+- AI-generated summaries;
+- calendar heatmaps;
+- infinite-scroll infrastructure;
+- complex filtering systems;
+- editable everything directly inside the timeline.
+
+Prefer server-side queries and simple composition of existing data.
+
+The timeline is successful when Josh can navigate to a month/date and understand the major recorded dimensions of his fitness state without visiting several separate pages.
+
+---
+
 # 18. Legacy GYM Google Sheet migration
 
 Do **not** implement Google OAuth or a live Google Sheets integration in alpha.
@@ -962,6 +1096,7 @@ Alpha is complete when Josh can:
 19. Deploy successfully to Vercel.
 20. Use the application comfortably from a phone.
 21. Record chest, waist, arm, thigh and calf measurements and view their historical change.
+22. Navigate a unified fitness timeline by month/date and view the recorded training, body, nutrition, phase and life-event context together.
 
 ---
 
