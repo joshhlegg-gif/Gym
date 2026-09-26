@@ -524,6 +524,57 @@ Refreshing or closing the page must not destroy the workout.
 
 ---
 
+## Workout logger interaction design
+
+The workout logger must be visually optimized for rapid between-set use, not merely expose all available actions.
+
+Each exercise should read as one clear block with this visual hierarchy:
+
+1. exercise name;
+2. target reps and rest target;
+3. compact previous-performance reference;
+4. current set rows;
+5. one obvious new-set entry row and **Log set** action.
+
+### Set rows
+
+Current sets should use clearly delineated rows/controls.
+
+Each row should make these values immediately distinguishable:
+
+- set number;
+- set type;
+- weight;
+- reps;
+- RIR;
+- corresponding previous performance where available.
+
+Weight, reps, RIR and set-type entry controls must have visible boundaries and labels/placeholders. Avoid visually ambiguous bare browser inputs.
+
+Secondary actions such as delete/duplicate should not visually compete with the primary logging flow. Prefer compact secondary controls or an unobtrusive action area.
+
+Do not repeat previous-session information in multiple confusing forms. Keep enough context to compare the current set with the corresponding previous set, while avoiding unnecessary duplication.
+
+### Primary logging action
+
+There must be one visually obvious **Log set** button associated with the new-set entry row.
+
+The logger should be comfortable to operate one-handed on a phone with large enough tap targets.
+
+### Rest timer editing
+
+Continue to start the rest timer automatically after a successful set log/duplicate using the exercise's configured rest target.
+
+In addition to pause/resume/reset/+30/dismiss, allow the user to edit the active timer duration/remaining time directly using a simple control.
+
+Do not require navigating away from the workout or editing the workout template just to change the current rest timer.
+
+This is a session-local timer adjustment; do not persist timer ticks or ad-hoc timer changes to Supabase.
+
+Do not turn this UX work into a general design-system project.
+
+---
+
 # 12. Previous-performance feature
 
 This is critical.
@@ -615,6 +666,77 @@ For each calendar date with sufficient context to display a point, calculate the
 The purpose is to make long-term smoothed bodyweight change visible, not merely compare the current week with the previous week.
 
 Use the profile's configured week start for calendar weekly averages where calendar-week summaries are used; the rolling 7-day series itself is independent of week boundaries.
+
+---
+
+## Body history visualisation and phase-rate comparison
+
+The Body screen should make longitudinal body-composition change easy to interpret, not merely list records.
+
+### Bodyweight graph
+
+The bodyweight graph should:
+
+- show raw bodyweight points over time;
+- show the historical rolling 7-day average as the primary smoothed trend;
+- have visible date/time-axis context and weight-axis values so the graph can be interpreted precisely;
+- allow tapping/clicking or otherwise focusing a point to reveal its exact date and value;
+- work on touch devices as well as desktop;
+- avoid requiring a chart library if the existing lightweight SVG approach can support this cleanly.
+
+### Measurement history
+
+Do not present measurement history only as a dense text list.
+
+Provide an orderly historical view that makes change in an individual measurement easy to follow over time.
+
+For alpha, a simple metric selector is sufficient. It should allow viewing trends for:
+
+- chest;
+- waist;
+- left bicep;
+- right bicep;
+- left thigh;
+- right thigh;
+- left calf;
+- right calf.
+
+The selected measurement trend should show:
+
+- date on the x-axis;
+- measurement in cm on the y-axis;
+- exact date/value on tap/click/focus.
+
+Preserve the underlying historical list/correction access.
+
+### Comparison overlays
+
+Where practical without introducing a charting framework, allow the body-history graph to layer useful context:
+
+- bodyweight / rolling 7-day bodyweight trend;
+- the selected body measurement;
+- phase boundaries or phase labels.
+
+Because kilograms and centimetres use different units, do not misleadingly plot them against one unlabeled shared numeric scale. Use clearly labelled separate scales, normalized visual comparison, or separate aligned tracks—whichever is simplest and remains interpretable.
+
+Phase context should make it visually apparent which period of the graph belongs to which phase.
+
+Do not add speculative correlations or claim that a phase caused a measurement/bodyweight change.
+
+### Actual versus targeted bodyweight rate
+
+When an active or historical phase has `target_rate_kg_per_week`, show the actual observed bodyweight rate alongside the target.
+
+For alpha, define **actual phase rate** using the rolling 7-day average:
+
+- identify the earliest rolling 7-day average available on or after the phase start;
+- identify the latest rolling 7-day average available within the phase (or through today for an active phase);
+- divide the change in those averages by elapsed calendar weeks between those two average dates;
+- display the signed result in kg/week;
+- compare it descriptively with the phase's stored target rate;
+- if there is insufficient bodyweight history or too little elapsed time for a meaningful calculation, show that the actual rate is not yet available rather than guessing.
+
+Do not infer missing weigh-ins and do not create a predictive weight-loss model.
 
 ---
 
