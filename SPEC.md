@@ -694,7 +694,31 @@ Display:
 
 Do not require every field to be entered each time.
 
-Prefer preserving left/right measurements separately in the database even if the UI optionally offers a single “Arm”, “Thigh”, or “Calf” value for convenience.
+Preserve left/right limb measurements separately in the database and make bilateral entry a first-class part of the normal measurement form.
+
+The normal alpha measurement form should directly support:
+
+- chest;
+- waist;
+- left arm / bicep;
+- right arm / bicep;
+- left thigh;
+- right thigh;
+- left calf;
+- right calf.
+
+Do not assume the two sides are equal. A convenience “both sides” value may exist, but it must not replace or obscure the left/right fields.
+
+Example valid measurement session:
+
+- Chest: 99 cm
+- Waist: 87.25 cm
+- Left bicep/arm: 32 cm
+- Right bicep/arm: 31.5 cm
+- Left thigh: 56.5 cm
+- Right thigh: 55 cm
+
+The UI and historical display should preserve and show these asymmetric values independently.
 
 The system should support historical corrections.
 
