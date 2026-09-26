@@ -22,7 +22,7 @@ async function completedSession(workoutId: string, ownerId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("workout_sessions")
-    .select("id")
+    .select("id,started_at,ended_at")
     .eq("id", workoutId)
     .eq("owner_id", ownerId)
     .eq("status", "completed")
@@ -38,10 +38,22 @@ export async function updateWorkoutDate(formData: FormData) {
   const { supabase, session } = await completedSession(workoutId, ownerId);
   if (!session || !date) redirect("/history");
 
-  const timestamp = `${date}T12:00:00.000Z`;
+  const originalStart = new Date(session.started_at);
+  const newStart = new Date(`${date}T00:00:00.000Z`);
+  newStart.setUTCHours(
+    originalStart.getUTCHours(),
+    originalStart.getUTCMinutes(),
+    originalStart.getUTCSeconds(),
+    originalStart.getUTCMilliseconds(),
+  );
+  const duration = session.ended_at
+    ? new Date(session.ended_at).getTime() - originalStart.getTime()
+    : null;
+  const startedAt = newStart.toISOString();
+  const endedAt = duration == null ? null : new Date(newStart.getTime() + duration).toISOString();
   const { error } = await supabase
     .from("workout_sessions")
-    .update({ started_at: timestamp, ended_at: timestamp })
+    .update({ started_at: startedAt, ended_at: endedAt })
     .eq("id", workoutId)
     .eq("owner_id", ownerId)
     .eq("status", "completed");
