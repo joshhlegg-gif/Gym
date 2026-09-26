@@ -810,6 +810,144 @@ This is contextual information, not a medical system.
 
 ---
 
+## 16.1 Plan, logging intent and disruption semantics
+
+The app must preserve the distinction between:
+
+1. **Prescription / plan** — what the active phase intended (for example a 1,900 kcal target).
+2. **Observed data completeness** — what nutrition data was actually recorded.
+3. **Logging intent** — whether nutrition logging was attempted, deliberately not attempted, or explicitly excused.
+4. **External context** — whether a life event disrupted training and/or made nutrition logging unreasonable.
+
+This distinction is important for longitudinal and AI analysis.
+
+A period of bodyweight gain while a phase has a calorie target must not automatically be interpreted as evidence that the prescribed calorie target was too high when nutrition adherence/logging was absent or disrupted.
+
+The database should store factual states and context. Do not store derived moral/evaluative labels such as “good adherence”, “bad adherence”, or “failure”.
+
+### Daily logging intent
+
+Keep the existing `daily_logs.tracking_status` unchanged.
+
+`tracking_status` answers:
+
+> How complete is the recorded nutrition data?
+
+Existing values remain:
+
+- `tracked`
+- `partial`
+- `untracked`
+
+Add a separate nullable enum field:
+
+`logging_intent`
+
+Values:
+
+- `attempted`
+- `not_attempted`
+- `excused`
+
+Semantics:
+
+**attempted**
+= Josh made an effort to record nutrition for that date. The resulting `tracking_status` may still be partial.
+
+**not_attempted**
+= nutrition logging was not attempted. This is factual context that may later be used in adherence analysis, but the database should not itself label it a failure.
+
+**excused**
+= nutrition logging was explicitly not expected for that date because of relevant context.
+
+The two fields are independent axes.
+
+Examples:
+
+| Situation | tracking_status | logging_intent |
+| --- | --- | --- |
+| Full nutrition logged | tracked | attempted |
+| Approximate/incomplete logging | partial | attempted |
+| Weight recorded but nutrition deliberately not logged | partial or untracked as appropriate | not_attempted |
+| Illness where nutrition logging was explicitly suspended | untracked | excused |
+| Travel where approximate tracking was still attempted | partial | attempted |
+
+Do not infer `attempted` merely because bodyweight was recorded. Bodyweight logging and nutrition logging are separate behaviours.
+
+Historical rows should remain `logging_intent = null` unless there is explicit evidence/user input. Do not backfill ambiguous historical intent.
+
+### Life-event effects
+
+Extend `life_events` with separate nullable/default-false factual flags:
+
+- `affects_training` boolean default false
+- `excuses_nutrition_logging` boolean default false
+
+These dimensions are independent.
+
+Examples:
+
+- shoulder injury: may affect training = true; excuses nutrition logging = false;
+- holiday/travel: may affect training = true and excuses nutrition logging = true;
+- illness: may set either or both depending on what actually happened;
+- stress/bad sleep: may affect training without excusing nutrition;
+- a relaxed-diet week does not require a life event merely because nutrition logging was not attempted.
+
+Do not infer these flags solely from the life-event `type`. The user chooses them when creating/editing an event.
+
+### Defaulting nutrition logging intent from life events
+
+If a date falls within the inclusive date range of one or more life events for the same owner where `excuses_nutrition_logging = true`, the UI/application may default that day's `logging_intent` to `excused`.
+
+Rules:
+
+- explicit user choice on the daily log always wins;
+- an excusing event must never overwrite an existing explicit `attempted` or `not_attempted` value;
+- do not continuously force `excused` with a database trigger after a user override;
+- creating/editing a life event should not retroactively rewrite historical non-null daily intent values;
+- historical null values may remain null rather than being guessed;
+- ordinary days must not have `attempted` versus `not_attempted` inferred automatically.
+
+Prefer simple application-layer defaulting over trigger infrastructure for alpha.
+
+### UI
+
+Where daily nutrition context is shown or edited, make it possible to set logging intent without adding a full nutrition-tracking product.
+
+At minimum:
+
+- Timeline/day detail should display `logging_intent` when present;
+- relevant daily-log editing/entry UI should allow choosing attempted / not attempted / excused;
+- life-event create/edit UI should expose:
+  - affects training;
+  - excuses nutrition logging.
+
+Where an excusing event covers a date and logging intent is still null, the UI may present `excused` as the suggested/default choice while making it clear that it can be overridden.
+
+### AI / analysis semantics
+
+Authorised AI tools should be able to distinguish:
+
+- phase calorie target;
+- observed calories/macros when available;
+- nutrition tracking completeness;
+- nutrition logging intent;
+- training-disrupting life events;
+- nutrition-logging-excusing life events;
+- resulting bodyweight trajectory.
+
+When analysing whether a phase target is appropriate, AI tools should treat periods with `not_attempted`, `excused`, `partial`, or `untracked` nutrition data as context/uncertainty rather than assuming the prescribed calorie target was followed.
+
+This schema enables later queries such as:
+
+- count dates explicitly marked `not_attempted` within a phase;
+- distinguish those from `excused` dates;
+- compare bodyweight response during well-recorded attempted periods with periods of uncertain intake.
+
+Do not implement an adherence score for alpha.
+
+---
+
 # 16A. Body measurements
 
 Add a simple body-measurement logging system.
@@ -1330,6 +1468,7 @@ Alpha is complete when Josh can:
 21. Record chest, waist, arm, thigh and calf measurements and view their historical change.
 22. Navigate a unified fitness timeline by month/date and view the recorded training, body, nutrition, phase and life-event context together.
 23. Upload private dated progress photos, review them in Body history, and access them from the relevant Timeline date.
+24. Record nutrition logging intent separately from tracking completeness and independently record whether life events disrupt training or excuse nutrition logging.
 
 ---
 
