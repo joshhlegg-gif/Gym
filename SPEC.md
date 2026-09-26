@@ -600,7 +600,21 @@ Do not interpolate missing weigh-ins.
 
 Weekly averages should use available weigh-ins, not assume missing values.
 
-Use the profile's configured week start for calendar weekly averages.
+In addition to the current-versus-previous 7-day summary, provide a **historical rolling 7-day average bodyweight series** across the recorded bodyweight history.
+
+For each calendar date with sufficient context to display a point, calculate the average of all available weigh-ins from that date and the preceding 6 calendar days:
+
+- use whatever weigh-ins actually exist in that 7-calendar-day window;
+- do not interpolate missing days;
+- do not treat missing days as zero;
+- the rolling series should update day by day rather than only producing one value per calendar week;
+- show the rolling-average trend over time on the Body screen;
+- preserve access to the underlying raw weigh-ins;
+- where Timeline/day detail displays a 7-day average, use this same rolling-window definition.
+
+The purpose is to make long-term smoothed bodyweight change visible, not merely compare the current week with the previous week.
+
+Use the profile's configured week start for calendar weekly averages where calendar-week summaries are used; the rolling 7-day series itself is independent of week boundaries.
 
 ---
 
