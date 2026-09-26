@@ -3,6 +3,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
+function workoutUrl(workoutId: string, formData: FormData) {
+  const restSeconds = Number(formData.get("rest_seconds"));
+  return restSeconds > 0 ? `/train/${workoutId}?rest=${restSeconds}` : `/train/${workoutId}`;
+}
+
 async function getActiveSessionExercise(
   workoutId: string,
   sessionExerciseId: string,
@@ -82,7 +87,7 @@ export async function addSet(formData: FormData) {
     .limit(1)
     .maybeSingle();
 
-  await supabase.from("workout_sets").insert({
+  const { error } = await supabase.from("workout_sets").insert({
     owner_id: ownerId,
     session_exercise_id: sessionExerciseId,
     set_number: (previous?.set_number ?? 0) + 1,
@@ -92,8 +97,9 @@ export async function addSet(formData: FormData) {
     rir: Number(formData.get("rir")) || null,
     completed_at: new Date().toISOString(),
   });
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20log%20set`);
 
-  redirect(`/train/${workoutId}`);
+  redirect(workoutUrl(workoutId, formData));
 }
 
 export async function deleteSet(formData: FormData) {
@@ -144,7 +150,7 @@ export async function duplicateSet(formData: FormData) {
 
   if (!source) redirect(`/train/${workoutId}?error=Could%20not%20duplicate%20set`);
 
-  await supabase.from("workout_sets").insert({
+  const { error } = await supabase.from("workout_sets").insert({
     owner_id: ownerId,
     session_exercise_id: sessionExerciseId,
     set_number: (previous?.set_number ?? 0) + 1,
@@ -154,8 +160,9 @@ export async function duplicateSet(formData: FormData) {
     rir: source.rir,
     completed_at: new Date().toISOString(),
   });
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20duplicate%20set`);
 
-  redirect(`/train/${workoutId}`);
+  redirect(workoutUrl(workoutId, formData));
 }
 
 export async function completeWorkout(formData: FormData) {

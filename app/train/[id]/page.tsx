@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { addSet, completeWorkout, deleteSet, duplicateSet } from "../actions";
+import { RestTimer } from "./rest-timer";
 
 type WorkoutSet = {
   id: string;
@@ -38,8 +39,10 @@ function previousMatch(currentSet: WorkoutSet, currentSets: WorkoutSet[], previo
   return previousSets.filter((set) => set.set_type === currentSet.set_type)[ordinal - 1];
 }
 
-export default async function WorkoutPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function WorkoutPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ rest?: string }> }) {
   const { id } = await params;
+  const { rest } = await searchParams;
+  const restSeconds = Number(rest);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getClaims();
   const ownerId = auth?.claims.sub;
@@ -110,6 +113,7 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
         <h1>{workout.workout_templates?.[0]?.name ?? "Workout"}</h1>
         <Link href="/train">Exit</Link>
       </header>
+      <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
 
       <section className="section">
         {workout.session_exercises?.sort((a, b) => a.position - b.position).map((exercise) => {
@@ -141,6 +145,7 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
                       <input type="hidden" name="workout_id" value={id} />
                       <input type="hidden" name="session_exercise_id" value={exercise.id} />
                       <input type="hidden" name="source_set_id" value={set.id} />
+                      <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
                       <button type="submit">Duplicate set</button>
                     </form>
                     <form action={deleteSet}>
@@ -158,6 +163,7 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
                   <input type="hidden" name="workout_id" value={id} />
                   <input type="hidden" name="session_exercise_id" value={exercise.id} />
                   <input type="hidden" name="source_set_id" value={set.id} />
+                  <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
                   <button type="submit">Duplicate previous #{set.set_number}</button>
                 </form>
               ))}
@@ -165,6 +171,7 @@ export default async function WorkoutPage({ params }: { params: Promise<{ id: st
               <form action={addSet} className="measurement-grid">
                 <input type="hidden" name="workout_id" value={id} />
                 <input type="hidden" name="session_exercise_id" value={exercise.id} />
+                <input type="hidden" name="rest_seconds" value={plan?.default_rest_seconds ?? 0} />
                 <label>Type<select name="set_type"><option>working</option><option>warmup</option><option>backoff</option><option>drop</option><option>rest_pause</option></select></label>
                 <label>kg<input name="weight_kg" type="number" step="0.5" /></label>
                 <label>Reps<input name="reps" type="number" /></label>
