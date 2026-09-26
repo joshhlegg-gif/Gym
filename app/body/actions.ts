@@ -13,21 +13,18 @@ export async function saveMeasurements(formData: FormData) {
   const { data: identity } = await supabase.auth.getClaims();
   const ownerId = identity?.claims.sub;
   if (!ownerId) redirect("/login");
-  const arm = number(formData.get("arm_cm"));
-  const thigh = number(formData.get("thigh_cm"));
-  const calf = number(formData.get("calf_cm"));
   const measurementId = String(formData.get("measurement_id") ?? "");
   const measurement = {
     owner_id: ownerId,
     date: String(formData.get("date")),
     chest_cm: number(formData.get("chest_cm")),
     waist_cm: number(formData.get("waist_cm")),
-    left_arm_cm: number(formData.get("left_arm_cm")) ?? arm,
-    right_arm_cm: number(formData.get("right_arm_cm")) ?? arm,
-    left_thigh_cm: number(formData.get("left_thigh_cm")) ?? thigh,
-    right_thigh_cm: number(formData.get("right_thigh_cm")) ?? thigh,
-    left_calf_cm: number(formData.get("left_calf_cm")) ?? calf,
-    right_calf_cm: number(formData.get("right_calf_cm")) ?? calf,
+    left_arm_cm: number(formData.get("left_arm_cm")),
+    right_arm_cm: number(formData.get("right_arm_cm")),
+    left_thigh_cm: number(formData.get("left_thigh_cm")),
+    right_thigh_cm: number(formData.get("right_thigh_cm")),
+    left_calf_cm: number(formData.get("left_calf_cm")),
+    right_calf_cm: number(formData.get("right_calf_cm")),
     notes: String(formData.get("notes") ?? "").trim() || null,
   };
   const { error } = measurementId
