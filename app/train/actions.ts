@@ -359,6 +359,41 @@ export async function abandonWorkout(formData: FormData) {
   const { supabase, ownerId } = await getOwnerId();
   if (!ownerId) redirect("/login");
   const workoutId = String(formData.get("workout_id"));
+
+  const { data: session } = await supabase
+    .from("workout_sessions")
+    .select("id")
+    .eq("id", workoutId)
+    .eq("owner_id", ownerId)
+    .eq("status", "active")
+    .maybeSingle();
+  if (!session) redirect(`/train/${workoutId}?error=Could%20not%20abandon%20workout`);
+
+  const { data: sessionExercises } = await supabase
+    .from("session_exercises")
+    .select("id")
+    .eq("session_id", workoutId)
+    .eq("owner_id", ownerId);
+  const sessionExerciseIds = sessionExercises?.map((exercise) => exercise.id) ?? [];
+  const { count, error: countError } = sessionExerciseIds.length
+    ? await supabase
+        .from("workout_sets")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", ownerId)
+        .in("session_exercise_id", sessionExerciseIds)
+    : { count: 0, error: null };
+  if (countError) redirect(`/train/${workoutId}?error=Could%20not%20abandon%20workout`);
+
+  if (!count) {
+    const { error } = await supabase
+      .from("workout_sessions")
+      .delete()
+      .eq("id", workoutId)
+      .eq("owner_id", ownerId)
+      .eq("status", "active");
+    redirect(error ? `/train/${workoutId}?error=Could%20not%20discard%20workout` : "/train");
+  }
+
   const { error } = await supabase
     .from("workout_sessions")
     .update({ status: "abandoned", ended_at: new Date().toISOString() })
