@@ -9,7 +9,7 @@ const measurementLabels: Record<(typeof measurementFields)[number], string> = { 
 type TimelineLog = { date: string; weight_kg: number | null; calories_kcal: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null; tracking_status: string | null; logging_intent: string | null };
 type TimelineMeasurement = { date: string } & Partial<Record<(typeof measurementFields)[number], number | null>>;
 type TimelineSession = { id: string; started_at: string; workout_templates: { name: string }[] | null; session_exercises: { position: number; exercises: { name: string }[] | null }[] | null };
-type TimelineEntry = { log?: TimelineLog; measurement?: TimelineMeasurement; sessions: TimelineSession[] };
+type TimelineEntry = { log?: TimelineLog; measurement?: TimelineMeasurement; photoCount?: number; sessions: TimelineSession[] };
 
 function localDate(timestamp: string) {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: APP_TIME_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(timestamp));
@@ -73,12 +73,13 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   const { start, end } = monthBounds(month);
   const workoutStart = new Date(new Date(`${start}T00:00:00.000Z`).getTime() - 86_400_000).toISOString();
   const workoutEnd = new Date(new Date(`${end}T00:00:00.000Z`).getTime() + 86_400_000).toISOString();
-  const [{ data: logs }, { data: measurements }, { data: sessions }, { data: phases }, { data: events }] = await Promise.all([
+  const [{ data: logs }, { data: measurements }, { data: sessions }, { data: phases }, { data: events }, { data: photos }] = await Promise.all([
     supabase.from("daily_logs").select("date,weight_kg,calories_kcal,protein_g,carbs_g,fat_g,tracking_status,logging_intent,notes,tags").eq("owner_id", ownerId).gte("date", start).lt("date", end),
     supabase.from("body_measurements").select("date,chest_cm,waist_cm,left_arm_cm,right_arm_cm,left_thigh_cm,right_thigh_cm,left_calf_cm,right_calf_cm,notes").eq("owner_id", ownerId).gte("date", start).lt("date", end),
     supabase.from("workout_sessions").select("id,started_at,workout_templates(name),session_exercises(position,exercises(name),workout_sets(id))").eq("owner_id", ownerId).eq("status", "completed").gte("started_at", workoutStart).lt("started_at", workoutEnd),
     supabase.from("phases").select("id,name,start_date,end_date,nutrition_goal,target_calories_kcal").eq("owner_id", ownerId).lte("start_date", end).or(`end_date.is.null,end_date.gte.${start}`),
     supabase.from("life_events").select("id,title,type,start_date,end_date,affects_training,excuses_nutrition_logging").eq("owner_id", ownerId).lte("start_date", end).or(`end_date.is.null,end_date.gte.${start}`),
+    supabase.from("progress_photos").select("date").eq("owner_id", ownerId).gte("date", start).lt("date", end),
   ]);
 
   const entries = new Map<string, TimelineEntry>();
@@ -91,6 +92,10 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   };
   for (const log of logs ?? []) entryFor(log.date).log = log as TimelineLog;
   for (const measurement of measurements ?? []) entryFor(measurement.date).measurement = measurement as TimelineMeasurement;
+  for (const photo of photos ?? []) {
+    const entry = entryFor(photo.date);
+    entry.photoCount = (entry.photoCount ?? 0) + 1;
+  }
   for (const session of sessions ?? []) {
     const date = localDate(session.started_at);
     if (date >= start && date < end) entryFor(date).sessions.push(session as TimelineSession);
@@ -119,7 +124,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       const log = entry.log;
       const nutrition = [log?.calories_kcal != null ? `${log.calories_kcal} kcal` : null, log?.protein_g != null ? `${log.protein_g}g protein` : null, log?.carbs_g != null ? `${log.carbs_g}g carbs` : null, log?.fat_g != null ? `${log.fat_g}g fat` : null].filter(Boolean);
       const measurementsText = entry.measurement ? measurementFields.map((field) => entry.measurement?.[field] == null ? null : `${measurementLabels[field]} ${decimal(entry.measurement[field])}`).filter(Boolean).join(" · ") : null;
-      return <article className="card" key={date}><div className="topbar"><h2>{new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIME_ZONE }).format(new Date(`${date}T12:00:00.000Z`))}</h2><Link href={`/history/day/${date}`}>Open day</Link></div>{log?.weight_kg != null && <p>Bodyweight: {decimal(log.weight_kg)} kg</p>}{nutrition.length > 0 && <p>{nutrition.join(" · ")}</p>}{log?.tracking_status && <p className="muted">{log.tracking_status.toLowerCase().includes("not tracked") ? "Food not tracked" : `Tracking: ${log.tracking_status}`}</p>}{log?.logging_intent && <p className="muted">Logging: {log.logging_intent.replaceAll("_", " ")}</p>}{entry.sessions.map((session) => <p key={session.id}>Workout: <WorkoutSummary session={session} /></p>)}{measurementsText && <p>Measurements: {measurementsText}</p>}{phase && <p className="muted">Phase: {phase.name} · {phase.nutrition_goal.replaceAll("_", " ")}{phase.target_calories_kcal != null ? ` · ${phase.target_calories_kcal} kcal target` : ""}</p>}{contexts.map((event) => <p className="muted" key={event.id}>Context: {event.title} · {event.type.replaceAll("_", " ")}{event.affects_training ? " · affects training" : ""}{event.excuses_nutrition_logging ? " · excuses nutrition logging" : ""}</p>)}</article>;
+      return <article className="card" key={date}><div className="topbar"><h2>{new Intl.DateTimeFormat("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIME_ZONE }).format(new Date(`${date}T12:00:00.000Z`))}</h2><Link href={`/history/day/${date}`}>Open day</Link></div>{log?.weight_kg != null && <p>Bodyweight: {decimal(log.weight_kg)} kg</p>}{nutrition.length > 0 && <p>{nutrition.join(" · ")}</p>}{log?.tracking_status && <p className="muted">{log.tracking_status.toLowerCase().includes("not tracked") ? "Food not tracked" : `Tracking: ${log.tracking_status}`}</p>}{log?.logging_intent && <p className="muted">Logging: {log.logging_intent.replaceAll("_", " ")}</p>}{entry.sessions.map((session) => <p key={session.id}>Workout: <WorkoutSummary session={session} /></p>)}{measurementsText && <p>Measurements: {measurementsText}</p>}{entry.photoCount && <p className="muted">Progress photos: {entry.photoCount}</p>}{phase && <p className="muted">Phase: {phase.name} · {phase.nutrition_goal.replaceAll("_", " ")}{phase.target_calories_kcal != null ? ` · ${phase.target_calories_kcal} kcal target` : ""}</p>}{contexts.map((event) => <p className="muted" key={event.id}>Context: {event.title} · {event.type.replaceAll("_", " ")}{event.affects_training ? " · affects training" : ""}{event.excuses_nutrition_logging ? " · excuses nutrition logging" : ""}</p>)}</article>;
     }) : <p className="muted">No recorded fitness data for this month.</p>}</div></section>
     <nav className="bottom-nav"><Link href="/">Today</Link><Link href="/train">Train</Link><Link href="/history">Timeline</Link><Link href="/body">Body</Link><Link href="/setup">Setup</Link></nav>
   </main>;

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { rollingSevenDayAverage } from "@/lib/bodyweight";
-import { deleteMeasurement, saveBodyweight, saveMeasurements } from "./actions";
+import { deleteMeasurement, deleteProgressPhoto, saveBodyweight, saveMeasurements, uploadProgressPhoto } from "./actions";
 import { BodyHistoryCharts } from "./body-history-charts";
 
 const fields = [
@@ -43,21 +43,26 @@ function daysAgo(days: number) {
   return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
 }
 
-export default async function BodyPage({ searchParams }: { searchParams: Promise<{ saved?: string; weightSaved?: string; error?: string; edit?: string }> }) {
+export default async function BodyPage({ searchParams }: { searchParams: Promise<{ saved?: string; weightSaved?: string; photoSaved?: string; photoDeleted?: string; error?: string; edit?: string }> }) {
   const supabase = await createClient();
   const { data: identity } = await supabase.auth.getClaims();
   const ownerId = identity?.claims.sub;
   if (!ownerId) redirect("/login");
 
-  const { saved, weightSaved, error, edit } = await searchParams;
-  const [{ data: measurements }, { data: logs }, { data: phases }, { data: editing }] = await Promise.all([
+  const { saved, weightSaved, photoSaved, photoDeleted, error, edit } = await searchParams;
+  const [{ data: measurements }, { data: logs }, { data: phases }, { data: editing }, { data: photos }] = await Promise.all([
     supabase.from("body_measurements").select("*").order("date", { ascending: false }),
     supabase.from("daily_logs").select("date,weight_kg").not("weight_kg", "is", null).order("date", { ascending: false }),
     supabase.from("phases").select("id,name,start_date,end_date,nutrition_goal,target_rate_kg_per_week").eq("owner_id", ownerId).order("start_date", { ascending: false }),
     edit
       ? supabase.from("body_measurements").select("*").eq("id", edit).eq("owner_id", ownerId).maybeSingle()
       : Promise.resolve({ data: null }),
+    supabase.from("progress_photos").select("id,date,storage_path,view,notes,created_at").eq("owner_id", ownerId).order("date", { ascending: false }).order("created_at", { ascending: false }),
   ]);
+  const photosWithUrls = await Promise.all((photos ?? []).map(async (photo) => {
+    const { data } = await supabase.storage.from("progress-photos").createSignedUrl(photo.storage_path, 3600);
+    return { ...photo, signedUrl: data?.signedUrl ?? null };
+  }));
 
   const weights = (logs ?? [])
     .map((row) => ({ date: row.date, weight: Number(row.weight_kg) }))
@@ -86,6 +91,8 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
     </header>
     {saved && <p className="notice">Measurements saved.</p>}
     {weightSaved && <p className="notice">Bodyweight saved.</p>}
+    {photoSaved && <p className="notice">Progress photo saved.</p>}
+    {photoDeleted && <p className="notice">Progress photo deleted.</p>}
     {error && <p className="error">{error}</p>}
 
     <section className="section">
@@ -104,6 +111,18 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
     </section>
 
     <BodyHistoryCharts weights={weights} rolling={rolling} measurements={measurements ?? []} phases={phases ?? []} />
+
+    <section className="section">
+      <div><p className="eyebrow">Progress photos</p><h2>Private body history</h2></div>
+      <form action={uploadProgressPhoto} className="measurement-form">
+        <label>Date<input type="date" name="date" required defaultValue={today} /></label>
+        <label>Photo<input type="file" name="photo" accept="image/*" required /></label>
+        <label>View<select name="view" defaultValue=""><option value="">No view label</option><option value="front">Front</option><option value="side">Side</option><option value="back">Back</option><option value="other">Other</option></select></label>
+        <label>Notes<textarea name="notes" rows={2} placeholder="Optional" /></label>
+        <button className="primary" type="submit">Upload photo</button>
+      </form>
+      <div className="photo-history">{photosWithUrls.length ? photosWithUrls.map((photo) => <article className="card" key={photo.id}><strong>{photo.date}{photo.view ? ` · ${photo.view}` : ""}</strong>{photo.signedUrl ? <a href={photo.signedUrl} target="_blank" rel="noreferrer"><img className="progress-photo" src={photo.signedUrl} alt={`Progress photo from ${photo.date}`} /></a> : <p className="muted">Photo preview is unavailable.</p>}{photo.notes && <p className="muted">{photo.notes}</p>}<form action={deleteProgressPhoto}><input type="hidden" name="photo_id" value={photo.id} /><button className="secondary-button" type="submit">Delete photo</button></form></article>) : <p className="muted">No progress photos yet.</p>}</div>
+    </section>
 
     {phaseRates.length > 0 && <section className="section"><p className="eyebrow">Phase bodyweight rate</p><div className="history-list">{phaseRates.map(({ phase, actual }) => { const target = Number(phase.target_rate_kg_per_week); return <article className="history-row" key={phase.id}><strong>{phase.name}</strong><span>Target {target >= 0 ? "+" : ""}{target.toFixed(2)} kg/week</span><span className="muted">{actual == null ? "Actual rate not yet available" : `Actual ${actual >= 0 ? "+" : ""}${actual.toFixed(2)} kg/week`}</span></article>; })}</div></section>}
 
