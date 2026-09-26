@@ -32,3 +32,21 @@ export async function saveMeasurements(formData: FormData) {
   if (error) redirect(`/body?error=${encodeURIComponent("Could not save measurements.")}`);
   redirect("/body?saved=1");
 }
+
+export async function saveBodyweight(formData: FormData) {
+  const supabase = await createClient();
+  const { data: identity } = await supabase.auth.getClaims();
+  const ownerId = identity?.claims.sub;
+  if (!ownerId) redirect("/login");
+
+  const weight = number(formData.get("weight_kg"));
+  const date = String(formData.get("date") ?? "");
+  if (!weight || !date) redirect("/body?error=Enter%20a%20valid%20date%20and%20weight.");
+
+  const { error } = await supabase.from("daily_logs").upsert(
+    { owner_id: ownerId, date, weight_kg: weight },
+    { onConflict: "owner_id,date" },
+  );
+  if (error) redirect(`/body?error=${encodeURIComponent("Could not save bodyweight.")}`);
+  redirect("/body?weightSaved=1");
+}
