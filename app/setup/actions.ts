@@ -34,6 +34,18 @@ export async function updatePhase(formData: FormData) {
   redirect(error ? `/setup/phases/${id}?error=Could%20not%20save%20phase` : `/setup/phases/${id}?saved=1`);
 }
 
+export async function endAndStartPhase(formData: FormData) {
+  const { supabase, ownerId } = await owner(); if (!ownerId) redirect("/login");
+  const id = String(formData.get("id")); const startDate = String(formData.get("start_date"));
+  const { data: current } = await supabase.from("phases").select("id,start_date,end_date").eq("id", id).eq("owner_id", ownerId).maybeSingle();
+  if (!current || current.end_date || !startDate || startDate <= current.start_date) redirect(`/setup/phases/${id}?error=Only%20an%20open%20phase%20can%20be%20ended%20and%20restarted`);
+  const previousEnd = new Date(`${startDate}T12:00:00.000Z`); previousEnd.setUTCDate(previousEnd.getUTCDate() - 1);
+  const { data: newPhase, error: insertError } = await supabase.from("phases").insert({ owner_id: ownerId, name: String(formData.get("name")).trim(), start_date: startDate, nutrition_goal: String(formData.get("nutrition_goal")), training_goal: String(formData.get("training_goal")), target_calories_kcal: optionalNumber(formData.get("target_calories_kcal")), estimated_maintenance_kcal: optionalNumber(formData.get("estimated_maintenance_kcal")), target_rate_kg_per_week: optionalNumber(formData.get("target_rate_kg_per_week")), notes: optionalText(formData.get("notes")) }).select("id").maybeSingle();
+  if (insertError || !newPhase) redirect(`/setup/phases/${id}?error=Could%20not%20start%20new%20phase`);
+  const { error: updateError } = await supabase.from("phases").update({ end_date: previousEnd.toISOString().slice(0, 10) }).eq("id", id).eq("owner_id", ownerId);
+  redirect(updateError ? `/setup/phases/${id}?error=New%20phase%20was%20created%20but%20the%20previous%20phase%20could%20not%20be%20closed` : `/setup/phases/${newPhase.id}?saved=1`);
+}
+
 export async function updateProgram(formData: FormData) {
   const { supabase, ownerId } = await owner(); if (!ownerId) redirect("/login");
   const id = String(formData.get("id"));

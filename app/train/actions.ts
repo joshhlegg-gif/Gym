@@ -8,6 +8,19 @@ function workoutUrl(workoutId: string, formData: FormData) {
   return restSeconds > 0 ? `/train/${workoutId}?rest=${restSeconds}` : `/train/${workoutId}`;
 }
 
+const setTypes = new Set(["warmup", "working", "backoff", "drop", "rest_pause"]);
+
+function numberOrNull(value: FormDataEntryValue | null) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return null;
+  const number = Number(raw);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function optionalText(value: FormDataEntryValue | null) {
+  return String(value ?? "").trim() || null;
+}
+
 async function getActiveSessionExercise(
   workoutId: string,
   sessionExerciseId: string,
@@ -201,6 +214,88 @@ export async function deleteSet(formData: FormData) {
   redirect(`/train/${workoutId}`);
 }
 
+export async function updateActiveSet(formData: FormData) {
+  const { ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+
+  const workoutId = String(formData.get("workout_id"));
+  const sessionExerciseId = String(formData.get("session_exercise_id"));
+  const setId = String(formData.get("set_id"));
+  const setType = String(formData.get("set_type"));
+  const { supabase, sessionExercise } = await getActiveSessionExercise(workoutId, sessionExerciseId, ownerId);
+  if (!sessionExercise || !setTypes.has(setType)) redirect(`/train/${workoutId}?error=Could%20not%20save%20set`);
+
+  const { error } = await supabase
+    .from("workout_sets")
+    .update({
+      set_type: setType,
+      weight_kg: numberOrNull(formData.get("weight_kg")),
+      reps: numberOrNull(formData.get("reps")),
+      rir: numberOrNull(formData.get("rir")),
+    })
+    .eq("id", setId)
+    .eq("session_exercise_id", sessionExerciseId)
+    .eq("owner_id", ownerId);
+  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20set` : `/train/${workoutId}`);
+}
+
+export async function saveWorkoutNotes(formData: FormData) {
+  const { supabase, ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+  const workoutId = String(formData.get("workout_id"));
+  const { error } = await supabase
+    .from("workout_sessions")
+    .update({ notes: optionalText(formData.get("notes")) })
+    .eq("id", workoutId)
+    .eq("owner_id", ownerId)
+    .eq("status", "active");
+  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20notes` : `/train/${workoutId}`);
+}
+
+export async function saveSessionExerciseNotes(formData: FormData) {
+  const { ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+  const workoutId = String(formData.get("workout_id"));
+  const sessionExerciseId = String(formData.get("session_exercise_id"));
+  const { supabase, sessionExercise } = await getActiveSessionExercise(workoutId, sessionExerciseId, ownerId);
+  if (!sessionExercise) redirect(`/train/${workoutId}?error=Could%20not%20save%20exercise%20notes`);
+  const { error } = await supabase
+    .from("session_exercises")
+    .update({ notes: optionalText(formData.get("notes")) })
+    .eq("id", sessionExerciseId)
+    .eq("session_id", workoutId)
+    .eq("owner_id", ownerId);
+  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20exercise%20notes` : `/train/${workoutId}`);
+}
+
+export async function moveSessionExercise(formData: FormData) {
+  const { ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+  const workoutId = String(formData.get("workout_id"));
+  const sessionExerciseId = String(formData.get("session_exercise_id"));
+  const direction = String(formData.get("direction"));
+  const { supabase, sessionExercise } = await getActiveSessionExercise(workoutId, sessionExerciseId, ownerId);
+  if (!sessionExercise) redirect(`/train/${workoutId}?error=Could%20not%20reorder%20exercise`);
+  const { data: items } = await supabase
+    .from("session_exercises")
+    .select("id,position")
+    .eq("session_id", workoutId)
+    .eq("owner_id", ownerId)
+    .order("position");
+  const index = items?.findIndex((item) => item.id === sessionExerciseId) ?? -1;
+  const nextIndex = direction === "up" ? index - 1 : index + 1;
+  if (!items || index < 0 || nextIndex < 0 || nextIndex >= items.length) redirect(`/train/${workoutId}`);
+  const reordered = [...items];
+  [reordered[index], reordered[nextIndex]] = [reordered[nextIndex], reordered[index]];
+  for (const [position, item] of items.entries()) {
+    await supabase.from("session_exercises").update({ position: -position - 1 }).eq("id", item.id).eq("owner_id", ownerId);
+  }
+  for (const [position, item] of reordered.entries()) {
+    await supabase.from("session_exercises").update({ position }).eq("id", item.id).eq("owner_id", ownerId);
+  }
+  redirect(`/train/${workoutId}`);
+}
+
 export async function duplicateSet(formData: FormData) {
   const { ownerId } = await getOwnerId();
   if (!ownerId) redirect("/login");
@@ -258,4 +353,17 @@ export async function completeWorkout(formData: FormData) {
 
   if (error) redirect(`/train/${workoutId}?error=Could%20not%20complete%20workout`);
   redirect("/history");
+}
+
+export async function abandonWorkout(formData: FormData) {
+  const { supabase, ownerId } = await getOwnerId();
+  if (!ownerId) redirect("/login");
+  const workoutId = String(formData.get("workout_id"));
+  const { error } = await supabase
+    .from("workout_sessions")
+    .update({ status: "abandoned", ended_at: new Date().toISOString() })
+    .eq("id", workoutId)
+    .eq("owner_id", ownerId)
+    .eq("status", "active");
+  redirect(error ? `/train/${workoutId}?error=Could%20not%20abandon%20workout` : "/train");
 }

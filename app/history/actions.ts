@@ -60,6 +60,22 @@ export async function updateWorkoutDate(formData: FormData) {
   redirect(error ? `/history/${workoutId}?error=Could%20not%20save%20workout%20date` : `/history/${workoutId}?saved=1`);
 }
 
+export async function updateHistoricalWorkoutNotes(formData: FormData) {
+  const { ownerId } = await getOwner();
+  if (!ownerId) redirect("/login");
+  const workoutId = String(formData.get("workout_id"));
+  const { supabase, session } = await completedSession(workoutId, ownerId);
+  if (!session) redirect("/history");
+  const notes = String(formData.get("notes") ?? "").trim() || null;
+  const { error } = await supabase
+    .from("workout_sessions")
+    .update({ notes })
+    .eq("id", workoutId)
+    .eq("owner_id", ownerId)
+    .eq("status", "completed");
+  redirect(error ? `/history/${workoutId}?error=Could%20not%20save%20workout%20notes` : `/history/${workoutId}?saved=1`);
+}
+
 export async function updateHistoricalExercise(formData: FormData) {
   const { ownerId } = await getOwner();
   if (!ownerId) redirect("/login");

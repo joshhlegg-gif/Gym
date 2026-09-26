@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { addSessionExercise, addSet, completeWorkout, deleteSet, duplicateSet, removeSessionExercise } from "../actions";
+import { abandonWorkout, addSessionExercise, addSet, completeWorkout, deleteSet, duplicateSet, moveSessionExercise, removeSessionExercise, saveSessionExerciseNotes, saveWorkoutNotes, updateActiveSet } from "../actions";
 import { RestTimer } from "./rest-timer";
 
 type WorkoutSet = {
@@ -51,7 +51,7 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
   const { data: workout } = await supabase
     .from("workout_sessions")
     .select(
-      "id,template_id,started_at,workout_templates(name),session_exercises(id,position,exercise_id,exercises(name),workout_sets(id,set_number,set_type,weight_kg,reps,rir))",
+      "id,template_id,started_at,notes,workout_templates(name),session_exercises(id,position,exercise_id,notes,exercises(name),workout_sets(id,set_number,set_type,weight_kg,reps,rir))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -122,6 +122,14 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
       {error && <p className="error">{error}</p>}
 
+      <section className="section">
+        <form action={saveWorkoutNotes} className="measurement-form">
+          <input type="hidden" name="workout_id" value={id} />
+          <label>Workout notes<textarea name="notes" rows={2} defaultValue={workout.notes ?? ""} placeholder="Optional notes for this session" /></label>
+          <button className="secondary-button" type="submit">Save notes</button>
+        </form>
+      </section>
+
       <section className="section logger-add-exercise">
         <form action={addSessionExercise} className="measurement-grid">
           <label>Add an exercise
@@ -136,7 +144,7 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       </section>
 
       <section className="logger-exercises">
-        {workout.session_exercises?.sort((a, b) => a.position - b.position).map((exercise) => {
+        {[...(workout.session_exercises ?? [])].sort((a, b) => a.position - b.position).map((exercise, index, orderedExercises) => {
           const plan = planByExercise.get(exercise.exercise_id);
           const previous = previousByExercise.get(exercise.id);
           const currentSets = [...(exercise.workout_sets ?? [])].sort((a, b) => a.set_number - b.set_number);
@@ -146,6 +154,17 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
               <header className="logger-exercise-heading"><h2>{exercise.exercises?.[0]?.name}</h2><p className="muted">
                 {formatRepRange(plan?.rep_min ?? null, plan?.rep_max ?? null)} · {formatRest(plan?.default_rest_seconds ?? null)}
               </p></header>
+              <div className="logger-set-actions">
+                <form action={moveSessionExercise}><input type="hidden" name="workout_id" value={id} /><input type="hidden" name="session_exercise_id" value={exercise.id} /><input type="hidden" name="direction" value="up" /><button className="secondary-button" type="submit" disabled={index === 0}>Move up</button></form>
+                <form action={moveSessionExercise}><input type="hidden" name="workout_id" value={id} /><input type="hidden" name="session_exercise_id" value={exercise.id} /><input type="hidden" name="direction" value="down" /><button className="secondary-button" type="submit" disabled={index === orderedExercises.length - 1}>Move down</button></form>
+              </div>
+              <details>
+                <summary>Exercise notes</summary>
+                <form action={saveSessionExerciseNotes} className="measurement-grid">
+                  <input type="hidden" name="workout_id" value={id} /><input type="hidden" name="session_exercise_id" value={exercise.id} />
+                  <label>Notes<input name="notes" defaultValue={exercise.notes ?? ""} /></label><button className="secondary-button" type="submit">Save notes</button>
+                </form>
+              </details>
 
               {previous && (
                 <div className="logger-previous muted">
@@ -173,6 +192,17 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
                       <input type="hidden" name="set_id" value={set.id} />
                       <button className="secondary-button" type="submit">Delete</button>
                     </form></div>
+                    <details>
+                      <summary>Edit set</summary>
+                      <form action={updateActiveSet} className="measurement-grid">
+                        <input type="hidden" name="workout_id" value={id} /><input type="hidden" name="session_exercise_id" value={exercise.id} /><input type="hidden" name="set_id" value={set.id} />
+                        <label>Type<select name="set_type" defaultValue={set.set_type}><option>working</option><option>warmup</option><option>backoff</option><option>drop</option><option>rest_pause</option></select></label>
+                        <label>Weight (kg)<input name="weight_kg" type="number" step="0.5" inputMode="decimal" defaultValue={set.weight_kg ?? ""} /></label>
+                        <label>Reps<input name="reps" type="number" inputMode="numeric" defaultValue={set.reps ?? ""} /></label>
+                        <label>RIR<input name="rir" type="number" step="0.5" inputMode="decimal" defaultValue={set.rir ?? ""} /></label>
+                        <button className="secondary-button" type="submit">Save set</button>
+                      </form>
+                    </details>
                   </div>
                 );
               })}</div>
@@ -210,6 +240,10 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       <form action={completeWorkout}>
         <input type="hidden" name="workout_id" value={id} />
         <button className="primary" type="submit">Complete workout</button>
+      </form>
+      <form action={abandonWorkout}>
+        <input type="hidden" name="workout_id" value={id} />
+        <button className="secondary-button" type="submit">Abandon workout</button>
       </form>
     </main>
   );
