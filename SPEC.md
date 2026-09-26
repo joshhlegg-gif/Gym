@@ -522,6 +522,18 @@ Autosave edits.
 
 Refreshing or closing the page must not destroy the workout.
 
+### Empty-session lifecycle
+
+Opening/starting a workout is not, by itself, evidence that a workout was actually performed.
+
+- An active session with **zero logged sets** is a disposable draft.
+- Empty draft sessions must not count toward completed workouts, training frequency, volume, adherence, history, Timeline workout records, or future analytics.
+- If the user abandons an active session with zero logged sets, delete that empty session rather than preserving it as an abandoned workout.
+- Once at least one set has been logged, the session is a real training record: abandoning it should preserve its data with `status = abandoned`.
+- Merely leaving an empty active session open may still allow **Resume workout**; this does not make it a completed/performed workout.
+
+Refreshing or closing the page must not destroy the workout.
+
 ---
 
 ## Workout logger interaction design
