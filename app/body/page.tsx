@@ -149,6 +149,6 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
       </div>
     </section>
 
-    <nav className="bottom-nav"><Link href="/">Today</Link><Link href="/train">Train</Link><Link href="/history">History</Link><Link href="/body">Body</Link><Link href="/setup">Setup</Link></nav>
+    <nav className="bottom-nav"><Link href="/">Today</Link><Link href="/train">Train</Link><Link href="/history">Timeline</Link><Link href="/body">Body</Link><Link href="/setup">Setup</Link></nav>
   </main>;
 }
