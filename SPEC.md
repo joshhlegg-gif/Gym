@@ -885,6 +885,90 @@ Body measurements are part of the detailed fitness source of truth in Supabase a
 
 ---
 
+# 16B. Progress photos
+
+Add simple private progress-photo logging as part of Body history.
+
+Progress photos are sensitive personal data. Store image files in **private Supabase Storage**, not as image bytes in Postgres and not in the public app bundle.
+
+## Data model
+
+Use a small metadata table such as `progress_photos` with:
+
+- `id`
+- `owner_id`
+- `date`
+- `storage_path`
+- `view` nullable
+- `notes` nullable
+- timestamps
+
+Suggested `view` values:
+
+- front
+- side
+- back
+- other
+
+Do not require a view label.
+
+Multiple photos may exist for the same date.
+
+## Storage and privacy
+
+- use a dedicated private Supabase Storage bucket;
+- files must not be publicly readable;
+- scope storage access to the authenticated owner;
+- use authenticated/signed access when displaying images;
+- never expose service-role credentials to the browser;
+- use a stable owner-scoped storage path convention;
+- deleting a progress photo should remove both its metadata record and its stored object where practical.
+
+## Body UI
+
+On the **Body** screen provide a simple progress-photo section.
+
+For alpha:
+
+- choose a date, default today;
+- upload one or more images;
+- optionally label each photo front/side/back/other;
+- optional notes;
+- show historical photo sessions newest first;
+- allow opening/viewing the full photo;
+- allow deleting an accidental photo;
+- support historical dates.
+
+Do not require all standard poses.
+
+## Timeline
+
+A date containing progress photos should appear as a recorded date in the unified Timeline.
+
+Timeline/day detail should indicate that progress photos exist for that date and allow the authorised user to view them.
+
+Do not place large full-resolution images directly into the compact monthly Timeline feed.
+
+## Scope limits
+
+For alpha, do NOT add:
+
+- AI physique analysis;
+- automatic body-fat estimation;
+- pose detection;
+- automatic cropping/alignment;
+- before/after generation;
+- image editing;
+- social sharing;
+- public URLs;
+- camera-specific infrastructure;
+- a separate media service;
+- image-derived measurements.
+
+The purpose is simply to preserve dated visual body-composition evidence alongside bodyweight, measurements, phases and training history.
+
+---
+
 # 17. History
 
 Workout history should allow:
@@ -1245,6 +1329,7 @@ Alpha is complete when Josh can:
 20. Use the application comfortably from a phone.
 21. Record chest, waist, arm, thigh and calf measurements and view their historical change.
 22. Navigate a unified fitness timeline by month/date and view the recorded training, body, nutrition, phase and life-event context together.
+23. Upload private dated progress photos, review them in Body history, and access them from the relevant Timeline date.
 
 ---
 
