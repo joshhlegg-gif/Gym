@@ -412,6 +412,158 @@ No nested menu architecture unless necessary.
 
 ---
 
+# 7A. UX direction — Hybrid Layout 1 + Layout 3
+
+The app should use a **clear card-based structure as the base**, while borrowing the more integrated, flowing feel of a single personal fitness instrument.
+
+This is a presentation and interaction direction, not a new feature set.
+
+## Overall principles
+
+- mobile-first;
+- calm, compact and highly legible;
+- clear information hierarchy;
+- obvious primary actions;
+- fewer visually equal competing controls;
+- minimal visual noise;
+- related information should feel connected rather than scattered across unrelated boxes;
+- preserve the existing small bottom navigation;
+- avoid turning the app into a generic dashboard full of decorative cards.
+
+Use a restrained visual language:
+
+- off-white / light neutral page background;
+- white content surfaces;
+- charcoal primary text;
+- muted secondary labels;
+- one restrained green accent;
+- subtle borders;
+- minimal shadows;
+- rounded corners, but not excessive;
+- strong numeric hierarchy;
+- small muted labels;
+- generous separation between conceptual sections;
+- tighter spacing within related groups.
+
+Do not build a design system framework. Use the existing CSS/components and improve them directly.
+
+## Today
+
+Today should feel like a compact command centre, not a database dashboard.
+
+Prioritize:
+
+1. current phase / current goal context;
+2. current bodyweight + rolling 7-day trend summary;
+3. one dominant training action:
+   - Start workout, or
+   - Resume workout;
+4. compact secondary actions such as:
+   - Log weight
+   - Measurements
+   - Progress photo
+   - Life event/context.
+
+The page should answer:
+
+> What matters today, and what is the next useful action?
+
+Avoid giving every piece of information equal visual weight.
+
+## Train
+
+Train should be the clearest and most utilitarian screen in the app.
+
+Each exercise should read as one coherent block.
+
+Prioritize:
+
+- exercise name;
+- target reps/rest;
+- compact previous-performance reference;
+- current sets;
+- new-set entry row;
+- clear Log set action;
+- visible timer.
+
+Secondary actions such as duplicate/delete/reorder/notes should remain available without visually dominating the logging flow.
+
+Large touch targets and one-handed phone use matter more than visual novelty.
+
+## Body
+
+Body should feel like a focused body-composition dashboard.
+
+Use a clear top summary for:
+
+- latest bodyweight;
+- rolling 7-day average;
+- target versus actual phase rate.
+
+Then organize the screen into clearly separated but visually related sections for:
+
+- bodyweight trend;
+- measurements;
+- progress photos;
+- recent/history correction.
+
+Prefer compact selectors/tabs where they reduce visual overload, e.g.:
+
+- Weight
+- Measurements
+- Photos
+
+This does not require literal tabs if a simpler layout is clearer.
+
+The page should make longitudinal change easy to understand without presenting every metric at once.
+
+## Timeline
+
+Timeline should feel more like a chronological fitness journal than a stack of unrelated cards.
+
+Use a clear date hierarchy and visually connect entries belonging to the same date.
+
+Phase changes and major life-event boundaries should read as meaningful temporal separators.
+
+The user should be able to skim and understand:
+
+- bodyweight;
+- nutrition/logging context;
+- workout;
+- measurements/photos;
+- active phase;
+- active life events.
+
+Avoid rendering empty categories.
+
+Keep day-detail available for full information.
+
+## Setup
+
+Setup can remain utilitarian and form-oriented.
+
+Do not spend design effort making Setup look like a primary consumer screen.
+
+Clarity and editability matter more than polish.
+
+## UX scope rule
+
+This UX direction must not change:
+
+- database behavior;
+- data semantics;
+- authentication;
+- import behavior;
+- workout persistence;
+- Timeline composition logic;
+- bodyweight calculations;
+- logging intent semantics;
+- Storage privacy.
+
+Presentation changes should preserve existing functionality unless an explicit UX requirement in this spec says otherwise.
+
+---
+
 # 8. Today screen
 
 Display only useful current information.
