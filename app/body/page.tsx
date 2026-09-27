@@ -83,6 +83,7 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
     const elapsedWeeks = first && last ? (new Date(`${last.date}T00:00:00.000Z`).getTime() - new Date(`${first.date}T00:00:00.000Z`).getTime()) / 604_800_000 : 0;
     return { phase, actual: first && last && elapsedWeeks >= 1 ? (last.weight - first.weight) / elapsedWeeks : null };
   });
+  const activePhaseRate = phaseRates.find(({ phase }) => phase.id === activePhase?.id);
 
   return <main className="app-shell">
     <header className="topbar">
@@ -95,7 +96,7 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
     {photoDeleted && <p className="notice">Progress photo deleted.</p>}
     {error && <p className="error">{error}</p>}
 
-    <section className="section">
+    <section className="section body-input-section">
       <div><p className="eyebrow">Daily bodyweight</p><h2>Log or correct a weigh-in</h2></div>
       <form action={saveBodyweight} className="measurement-grid">
         <label>Date<input type="date" name="date" required defaultValue={today} /></label>
@@ -104,15 +105,15 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
       </form>
     </section>
 
-    <section className="grid">
-      <article className="card"><p className="eyebrow">Latest bodyweight</p><h2>{kilograms(weights[0]?.weight ?? null)}</h2><p>Latest date {weights[0]?.date ?? "—"}</p></article>
-      <article className="card"><p className="eyebrow">7-day average</p><h2>{kilograms(currentAverage)}</h2><p>Previous {kilograms(previousAverage)}</p><p className="muted">{averageChange == null ? "No prior comparison" : `${averageChange >= 0 ? "+" : ""}${averageChange.toFixed(1)} kg`}</p></article>
-      <article className="card"><p className="eyebrow">Current phase</p><h2>{activePhase?.name ?? "No active phase"}</h2><Link href="/setup/phases">Manage phases</Link></article>
+    <section className="grid body-summary">
+      <article className="card"><p className="eyebrow">Latest bodyweight</p><p className="body-summary-value">{kilograms(weights[0]?.weight ?? null)}</p><p className="muted">Latest date {weights[0]?.date ?? "—"}</p></article>
+      <article className="card"><p className="eyebrow">Rolling 7-day average</p><h2>{kilograms(currentAverage)}</h2><p>Previous {kilograms(previousAverage)}</p><p className="muted">{averageChange == null ? "No prior comparison" : `${averageChange >= 0 ? "+" : ""}${averageChange.toFixed(1)} kg`}</p></article>
+      <article className="card"><p className="eyebrow">Phase rate</p><h2>{activePhase?.name ?? "No active phase"}</h2><p>{activePhaseRate ? `Target ${Number(activePhaseRate.phase.target_rate_kg_per_week).toFixed(2)} kg/week` : "No target rate"}</p><p className="muted">{activePhaseRate?.actual == null ? "Actual rate not yet available" : `Actual ${activePhaseRate.actual >= 0 ? "+" : ""}${activePhaseRate.actual.toFixed(2)} kg/week`}</p></article>
     </section>
 
     <BodyHistoryCharts weights={weights} rolling={rolling} measurements={measurements ?? []} phases={phases ?? []} />
 
-    <section className="section">
+    <section className="section" id="photos">
       <div><p className="eyebrow">Progress photos</p><h2>Private body history</h2></div>
       <form action={uploadProgressPhoto} className="measurement-form">
         <label>Date<input type="date" name="date" required defaultValue={today} /></label>
@@ -133,7 +134,7 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
       </div>
     </section>
 
-    <section className="section">
+    <section className="section" id="measurements">
       <div><p className="eyebrow">Measurement session</p><h2>{editing ? `Correct: ${editing.date}` : latest ? `Latest: ${latest.date}` : "First measurement"}</h2></div>
       <form action={saveMeasurements} className="measurement-form">
         <input type="hidden" name="measurement_id" value={editing?.id ?? ""} />
@@ -166,6 +167,6 @@ export default async function BodyPage({ searchParams }: { searchParams: Promise
       </div>
     </section>
 
-    <nav className="bottom-nav"><Link href="/">Today</Link><Link href="/train">Train</Link><Link href="/history">Timeline</Link><Link href="/body">Body</Link><Link href="/setup">Setup</Link></nav>
+    <nav className="bottom-nav"><Link href="/">Today</Link><Link href="/train">Train</Link><Link href="/history">Timeline</Link><Link href="/body" aria-current="page">Body</Link><Link href="/setup">Setup</Link></nav>
   </main>;
 }

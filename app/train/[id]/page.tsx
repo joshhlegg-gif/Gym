@@ -122,25 +122,31 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
       {error && <p className="error">{error}</p>}
 
-      <section className="section">
-        <form action={saveWorkoutNotes} className="measurement-form">
-          <input type="hidden" name="workout_id" value={id} />
-          <label>Workout notes<textarea name="notes" rows={2} defaultValue={workout.notes ?? ""} placeholder="Optional notes for this session" /></label>
-          <button className="secondary-button" type="submit">Save notes</button>
-        </form>
+      <section className="section logger-utility">
+        <details>
+          <summary>Workout notes</summary>
+          <form action={saveWorkoutNotes} className="measurement-form">
+            <input type="hidden" name="workout_id" value={id} />
+            <label>Workout notes<textarea name="notes" rows={2} defaultValue={workout.notes ?? ""} placeholder="Optional notes for this session" /></label>
+            <button className="secondary-button" type="submit">Save notes</button>
+          </form>
+        </details>
       </section>
 
-      <section className="section logger-add-exercise">
-        <form action={addSessionExercise} className="measurement-grid">
-          <label>Add an exercise
-            <select name="exercise_id" required defaultValue="">
-              <option value="" disabled>Select exercise</option>
-              {(availableExercises ?? []).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
-            </select>
-          </label>
-          <input type="hidden" name="workout_id" value={id} />
-          <button type="submit">Add exercise</button>
-        </form>
+      <section className="section logger-add-exercise logger-utility">
+        <details>
+          <summary>Add an exercise</summary>
+          <form action={addSessionExercise} className="measurement-grid">
+            <label>Add an exercise
+              <select name="exercise_id" required defaultValue="">
+                <option value="" disabled>Select exercise</option>
+                {(availableExercises ?? []).map((exercise) => <option key={exercise.id} value={exercise.id}>{exercise.name}</option>)}
+              </select>
+            </label>
+            <input type="hidden" name="workout_id" value={id} />
+            <button className="secondary-button" type="submit">Add exercise</button>
+          </form>
+        </details>
       </section>
 
       <section className="logger-exercises">
