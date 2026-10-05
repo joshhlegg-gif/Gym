@@ -674,6 +674,10 @@ Autosave edits.
 
 Refreshing or closing the page must not destroy the workout.
 
+A successful set log/edit/delete/duplicate must be reflected in the visible workout state immediately when the action completes. The user must not need to manually reload the page to see the correct current set count.
+
+On touch devices, when the workout logger is already scrolled to the top, pulling down and releasing should provide a simple in-app refresh that reloads the current server state without navigating away or losing the active workout.
+
 ### Empty-session lifecycle
 
 Opening/starting a workout is not, by itself, evidence that a workout was actually performed.
@@ -693,6 +697,8 @@ Refreshing or closing the page must not destroy the workout.
 The workout logger must be visually optimized for rapid between-set use, not merely expose all available actions.
 
 Each exercise should read as one clear block with this visual hierarchy:
+
+The exercise identity must remain obvious while entering sets. On long exercise blocks, keep the exercise name visible while the user scrolls through that exercise (for example with a sticky exercise heading).
 
 1. exercise name;
 2. target reps and rest target;
@@ -743,9 +749,11 @@ Do not turn this UX work into a general design-system project.
 
 This is critical.
 
-When logging an exercise, fetch the most recent completed session containing the same exercise.
+When logging an exercise, fetch the recent completed sessions containing the same exercise. Keep the most recent session as the primary comparison, but make at least the previous five occurrences available inline on the workout screen without navigating away.
 
-Display something like:
+The user should be able to expand earlier history with one tap and quickly compare weight/reps across several recent sessions.
+
+Display the most recent session something like:
 
 **Last time — 6 Sep**
 

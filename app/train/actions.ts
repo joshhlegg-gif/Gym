@@ -1,11 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 function workoutUrl(workoutId: string, formData: FormData) {
   const restSeconds = Number(formData.get("rest_seconds"));
   return restSeconds > 0 ? `/train/${workoutId}?rest=${restSeconds}` : `/train/${workoutId}`;
+}
+
+function refreshWorkout(workoutId: string) {
+  revalidatePath(`/train/${workoutId}`);
 }
 
 const setTypes = new Set(["warmup", "working", "backoff", "drop", "rest_pause"]);
@@ -112,6 +117,7 @@ export async function addSet(formData: FormData) {
   });
   if (error) redirect(`/train/${workoutId}?error=Could%20not%20log%20set`);
 
+  refreshWorkout(workoutId);
   redirect(workoutUrl(workoutId, formData));
 }
 
@@ -164,6 +170,7 @@ export async function addSessionExercise(formData: FormData) {
   });
   if (error) redirect(`/train/${workoutId}?error=Could%20not%20add%20exercise`);
 
+  refreshWorkout(workoutId);
   redirect(`/train/${workoutId}`);
 }
 
@@ -191,6 +198,7 @@ export async function removeSessionExercise(formData: FormData) {
     .eq("owner_id", ownerId);
   if (error) redirect(`/train/${workoutId}?error=Could%20not%20skip%20exercise`);
 
+  refreshWorkout(workoutId);
   redirect(`/train/${workoutId}`);
 }
 
@@ -211,6 +219,7 @@ export async function deleteSet(formData: FormData) {
     .eq("owner_id", ownerId)
     .eq("session_exercise_id", sessionExerciseId);
 
+  refreshWorkout(workoutId);
   redirect(`/train/${workoutId}`);
 }
 
@@ -236,7 +245,9 @@ export async function updateActiveSet(formData: FormData) {
     .eq("id", setId)
     .eq("session_exercise_id", sessionExerciseId)
     .eq("owner_id", ownerId);
-  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20set` : `/train/${workoutId}`);
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20save%20set`);
+  refreshWorkout(workoutId);
+  redirect(`/train/${workoutId}`);
 }
 
 export async function saveWorkoutNotes(formData: FormData) {
@@ -249,7 +260,9 @@ export async function saveWorkoutNotes(formData: FormData) {
     .eq("id", workoutId)
     .eq("owner_id", ownerId)
     .eq("status", "active");
-  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20notes` : `/train/${workoutId}`);
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20save%20notes`);
+  refreshWorkout(workoutId);
+  redirect(`/train/${workoutId}`);
 }
 
 export async function saveSessionExerciseNotes(formData: FormData) {
@@ -265,7 +278,9 @@ export async function saveSessionExerciseNotes(formData: FormData) {
     .eq("id", sessionExerciseId)
     .eq("session_id", workoutId)
     .eq("owner_id", ownerId);
-  redirect(error ? `/train/${workoutId}?error=Could%20not%20save%20exercise%20notes` : `/train/${workoutId}`);
+  if (error) redirect(`/train/${workoutId}?error=Could%20not%20save%20exercise%20notes`);
+  refreshWorkout(workoutId);
+  redirect(`/train/${workoutId}`);
 }
 
 export async function moveSessionExercise(formData: FormData) {
@@ -293,6 +308,7 @@ export async function moveSessionExercise(formData: FormData) {
   for (const [position, item] of reordered.entries()) {
     await supabase.from("session_exercises").update({ position }).eq("id", item.id).eq("owner_id", ownerId);
   }
+  refreshWorkout(workoutId);
   redirect(`/train/${workoutId}`);
 }
 
@@ -336,6 +352,7 @@ export async function duplicateSet(formData: FormData) {
   });
   if (error) redirect(`/train/${workoutId}?error=Could%20not%20duplicate%20set`);
 
+  refreshWorkout(workoutId);
   redirect(workoutUrl(workoutId, formData));
 }
 
