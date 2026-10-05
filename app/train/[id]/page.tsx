@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { abandonWorkout, addSessionExercise, addSet, completeWorkout, deleteSet, duplicateSet, moveSessionExercise, removeSessionExercise, saveSessionExerciseNotes, saveWorkoutNotes, updateActiveSet } from "../actions";
+import { PullToRefresh } from "./pull-to-refresh";
 import { RestTimer } from "./rest-timer";
 
 type WorkoutSet = {
@@ -15,6 +16,10 @@ type WorkoutSet = {
 
 function formatSet(set: WorkoutSet) {
   return `${set.weight_kg ?? "—"} kg × ${set.reps ?? "—"}${set.rir != null ? ` · RIR ${set.rir}` : ""}`;
+}
+
+function relationName(value: { name: string } | { name: string }[] | null | undefined) {
+  return Array.isArray(value) ? value[0]?.name : value?.name;
 }
 
 function formatRest(seconds: number | null) {
@@ -93,30 +98,28 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
     : { data: [] };
 
   const planByExercise = new Map(plans?.map((plan) => [plan.exercise_id, plan]));
-  const previousByExercise = new Map<string, { date: string; sets: WorkoutSet[] }>();
+  const historyByExercise = new Map<string, { date: string; sets: WorkoutSet[] }[]>();
 
   for (const exercise of workout.session_exercises ?? []) {
-    const previous = completedSessions?.find((session) =>
-      previousExercises?.some(
+    const history = (completedSessions ?? []).flatMap((session) => {
+      const previousExercise = previousExercises?.find(
         (item) => item.session_id === session.id && item.exercise_id === exercise.exercise_id,
-      ),
-    );
-    const previousExercise = previous && previousExercises?.find(
-      (item) => item.session_id === previous.id && item.exercise_id === exercise.exercise_id,
-    );
-
-    if (previous && previousExercise) {
-      previousByExercise.set(exercise.id, {
-        date: previous.started_at,
+      );
+      if (!previousExercise) return [];
+      return [{
+        date: session.started_at,
         sets: [...(previousExercise.workout_sets ?? [])].sort((a, b) => a.set_number - b.set_number),
-      });
-    }
+      }];
+    }).slice(0, 5);
+
+    historyByExercise.set(exercise.id, history);
   }
 
   return (
     <main className="app-shell">
+      <PullToRefresh />
       <header className="topbar">
-        <h1>{workout.workout_templates?.[0]?.name ?? "Workout"}</h1>
+        <h1>{relationName(workout.workout_templates) ?? "Workout"}</h1>
         <Link href="/train">Exit</Link>
       </header>
       <RestTimer workoutId={id} startSeconds={Number.isFinite(restSeconds) && restSeconds > 0 ? restSeconds : null} />
@@ -152,12 +155,14 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
       <section className="logger-exercises">
         {[...(workout.session_exercises ?? [])].sort((a, b) => a.position - b.position).map((exercise, index, orderedExercises) => {
           const plan = planByExercise.get(exercise.exercise_id);
-          const previous = previousByExercise.get(exercise.id);
+          const history = historyByExercise.get(exercise.id) ?? [];
+          const previous = history[0];
+          const earlierHistory = history.slice(1);
           const currentSets = [...(exercise.workout_sets ?? [])].sort((a, b) => a.set_number - b.set_number);
 
           return (
             <article className="card logger-exercise" key={exercise.id}>
-              <header className="logger-exercise-heading"><h2>{exercise.exercises?.[0]?.name}</h2><p className="muted">
+              <header className="logger-exercise-heading"><h2>{relationName(exercise.exercises) ?? "Exercise"}</h2><p className="muted">
                 {formatRepRange(plan?.rep_min ?? null, plan?.rep_max ?? null)} · {formatRest(plan?.default_rest_seconds ?? null)}
               </p></header>
               <div className="logger-set-actions">
@@ -177,6 +182,20 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
                   <p className="eyebrow">Last time · {new Date(previous.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</p>
                   <p>{previous.sets.map((set) => `#${set.set_number} ${formatSet(set)}`).join(" · ")}</p>
                 </div>
+              )}
+
+              {earlierHistory.length > 0 && (
+                <details className="logger-history">
+                  <summary>Earlier history · {earlierHistory.length} session{earlierHistory.length === 1 ? "" : "s"}</summary>
+                  <div className="logger-history-list">
+                    {earlierHistory.map((entry) => (
+                      <div className="logger-history-row" key={entry.date}>
+                        <strong>{new Date(entry.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</strong>
+                        <span>{entry.sets.map((set) => `#${set.set_number} ${formatSet(set)}`).join(" · ")}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
               )}
 
               <div className="logger-current-sets">{currentSets.map((set) => {
