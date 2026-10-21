@@ -70,12 +70,14 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
           .select("exercise_id,rep_min,rep_max,default_rest_seconds")
           .eq("template_id", workout.template_id)
       : Promise.resolve({ data: [] }),
-    exerciseIds.length
+    workout.template_id && exerciseIds.length
       ? supabase
           .from("workout_sessions")
           .select("id,started_at")
           .eq("owner_id", ownerId)
           .eq("status", "completed")
+          .eq("template_id", workout.template_id)
+          .neq("id", id)
           .lt("started_at", workout.started_at)
           .order("started_at", { ascending: false })
       : Promise.resolve({ data: [] }),
@@ -177,11 +179,13 @@ export default async function WorkoutPage({ params, searchParams }: { params: Pr
                 </form>
               </details>
 
-              {previous && (
+              {previous ? (
                 <div className="logger-previous muted">
                   <p className="eyebrow">Last time · {new Date(previous.date).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</p>
                   <p>{previous.sets.map((set) => `#${set.set_number} ${formatSet(set)}`).join(" · ")}</p>
                 </div>
+              ) : (
+                <p className="logger-previous muted eyebrow">No previous session for this exercise in this template yet</p>
               )}
 
               {earlierHistory.length > 0 && (

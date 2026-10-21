@@ -769,13 +769,20 @@ Current Set 2
 
 > Previous: **70 kg × 7**
 
-Matching should primarily use:
+Matching must use:
 
-1. same exercise;
-2. same set type when possible;
-3. same ordinal within that set type.
+1. same workout template as the active session;
+2. same exercise;
+3. same set type when possible;
+4. same ordinal within that set type.
 
-Do not require the old workout template to be identical.
+A different template containing the same exercise (e.g. Push A vs Push B both containing
+Bench Press) must never be used as the previous-performance source — each template tracks
+its own previous performance for a shared exercise.
+
+A completed session whose `template_id` is null (for example because its original template
+was later deleted, or an import could not resolve a template name) does not count as a match
+for any template. Do not guess which template it belonged to.
 
 ---
 
